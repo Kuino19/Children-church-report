@@ -227,11 +227,11 @@ export const RepDashboard: React.FC = () => {
                 <span>•</span>
                 <span>{user?.church_name || 'My Church'}</span>
               </div>
-              <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
-                Weekly Service Submission
+              <h2 className="text-sm sm:text-base md:text-lg font-black text-slate-900 tracking-tight uppercase">
+                IDIMU CHILDREN'S MINISTRY - DATA & SPIRITUAL REPORT PLATFORM
               </h2>
               <p className="text-xs text-slate-500">
-                Foursquare Idimu Missionary District — Log Sunday metrics.
+                Weekly Sunday Service Submission & Metrics Log.
               </p>
             </div>
           </div>

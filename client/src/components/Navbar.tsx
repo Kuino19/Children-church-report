@@ -28,8 +28,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenProfile, onPrint, showPrin
             />
           </div>
           <div>
-            <h1 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight leading-tight">
-              Foursquare Idimu Missionary District
+            <h1 className="text-xs sm:text-sm md:text-base font-extrabold text-slate-900 tracking-tight leading-tight uppercase">
+              IDIMU CHILDREN'S MINISTRY - DATA & SPIRITUAL REPORT PLATFORM
             </h1>
             <p className="text-[11px] font-medium text-slate-500">
               {isAdmin ? 'District Coordinator Central Collation' : `${user.church_name || 'Local Church'} • ${user.zone_name || 'Zone'}`}

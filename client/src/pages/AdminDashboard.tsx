@@ -303,11 +303,11 @@ export const AdminDashboard: React.FC = () => {
                 <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60 mb-1">
                   <span>Foursquare Idimu Missionary District</span>
                 </div>
-                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                  District Weekly Collation & Analysis
+                <h1 className="text-base sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight uppercase">
+                  IDIMU CHILDREN'S MINISTRY - DATA & SPIRITUAL REPORT PLATFORM
                 </h1>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Real-time collation for all Zones and Churches in Foursquare Idimu Missionary District.
+                  Foursquare Idimu Missionary District — Real-time collation for all Zones and Churches.
                 </p>
               </div>
             </div>
@@ -448,8 +448,8 @@ export const AdminDashboard: React.FC = () => {
             className="w-16 h-16 object-contain rounded-lg border border-slate-300"
           />
           <div>
-            <h1 className="text-2xl font-black text-slate-900">
-              Foursquare Idimu Missionary District Collation Report
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 uppercase">
+              IDIMU CHILDREN'S MINISTRY - DATA & SPIRITUAL REPORT PLATFORM
             </h1>
             <p className="text-sm text-slate-600 mt-1">
               Period: <span className="font-bold">{MONTH_NAMES[selectedMonth - 1]} {selectedYear}</span> •

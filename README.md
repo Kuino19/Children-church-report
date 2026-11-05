@@ -1,4 +1,4 @@
-# Foursquare Idimu Missionary District - Weekly Reporting & Collation Platform
+# IDIMU CHILDREN'S MINISTRY - DATA & SPIRITUAL REPORT PLATFORM
 
 A mobile-first, full-stack reporting and collation web application designed to replace manual monthly Google Forms with a permanent, centralized reporting infrastructure for **Foursquare Idimu Missionary District**. Individual church representatives log their weekly service, demographic, and spiritual harvest metrics every Sunday, while the District Coordinator accesses real-time submissions, historical collations, compliance tracking, and automated summaries without data loss.
 

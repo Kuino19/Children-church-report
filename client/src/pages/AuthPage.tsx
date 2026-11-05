@@ -81,11 +81,11 @@ export const AuthPage: React.FC = () => {
               className="w-full h-full object-contain rounded-xl"
             />
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-tight">
-            Foursquare Idimu Missionary District
+          <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight uppercase">
+            IDIMU CHILDREN'S MINISTRY - DATA & SPIRITUAL REPORT PLATFORM
           </h1>
           <p className="text-xs text-slate-500 mt-1 font-medium">
-            Weekly Reporting & Centralized District Collation Portal
+            Foursquare Idimu Missionary District • Weekly Sunday Collation Portal
           </p>
         </div>
 
@@ -289,8 +289,8 @@ export const AuthPage: React.FC = () => {
           </div>
         </div>
 
-        <p className="text-center text-[11px] text-slate-400 mt-4">
-          Foursquare Idimu Missionary District • Weekly Reporting & Collation Platform • 2026
+        <p className="text-center text-[11px] text-slate-400 mt-4 uppercase">
+          IDIMU CHILDREN'S MINISTRY - DATA & SPIRITUAL REPORT PLATFORM • 2026
         </p>
       </div>
     </div>
