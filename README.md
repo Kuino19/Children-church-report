@@ -16,11 +16,19 @@ launch_church_reports.bat
 This opens the platform in your browser at:
 👉 **[http://localhost:5000](http://localhost:5000)**
 
-### 2. Manual CLI Start
+### 2. Manual CLI Start (Local Offline)
 ```bash
 cd church-reports
-node server/server.js
+npm start
 ```
+
+### 3. Vercel Cloud Deployment
+This project is pre-configured for 1-click deployment on **Vercel** with full serverless Express API and persistent cloud database support.
+1. Import the GitHub repository into your Vercel Dashboard:
+   👉 **[https://github.com/Kuino19/Children-church-report](https://github.com/Kuino19/Children-church-report)**
+2. In your Vercel Project Settings > **Environment Variables**, add:
+   - **`DATABASE_URL`**: Your Neon / PostgreSQL connection string (from your Neon console)
+3. Click **Deploy**. Vercel will automatically build the client SPA and map all `/api/*` endpoints to the serverless function.
 
 ---
 

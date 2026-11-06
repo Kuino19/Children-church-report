@@ -50,6 +50,10 @@ if (fs.existsSync(clientDist)) {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`[Foursquare Idimu Missionary District Server] Running on http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`[Foursquare Idimu Missionary District Server] Running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

@@ -6,8 +6,8 @@ const { generateToken, requireAuth, ADMIN_INVITE_CODE } = require('../auth');
 const router = express.Router();
 
 // Helper to query full user profile with joined names
-function getUserProfile(userId) {
-  return db.prepare(`
+async function getUserProfile(userId) {
+  return await db.prepare(`
     SELECT 
       u.id, u.full_name, u.email_or_phone, u.role, u.church_id, u.zone_id, u.created_at,
       c.name as church_name,
@@ -20,7 +20,7 @@ function getUserProfile(userId) {
 }
 
 // Register
-router.post('/register', (req, res) => {
+router.post('/register', async (req, res) => {
   try {
     const {
       fullName,
@@ -39,7 +39,7 @@ router.post('/register', (req, res) => {
     const cleanEmailOrPhone = emailOrPhone.trim().toLowerCase();
 
     // Check if user exists
-    const existing = db.prepare('SELECT id FROM users WHERE email_or_phone = ?').get(cleanEmailOrPhone);
+    const existing = await db.prepare('SELECT id FROM users WHERE email_or_phone = ?').get(cleanEmailOrPhone);
     if (existing) {
       return res.status(400).json({ error: 'An account with this email/phone already exists. Please log in.' });
     }
@@ -63,19 +63,19 @@ router.post('/register', (req, res) => {
     }
 
     // 1. Find or create Zone
-    let zoneRecord = db.prepare('SELECT id, name FROM zones WHERE LOWER(name) = LOWER(?)').get(normalizedZone);
+    let zoneRecord = await db.prepare('SELECT id, name FROM zones WHERE LOWER(name) = LOWER(?)').get(normalizedZone);
     if (!zoneRecord) {
       zoneId = generateUUID();
-      db.prepare('INSERT INTO zones (id, name) VALUES (?, ?)').run(zoneId, normalizedZone);
+      await db.prepare('INSERT INTO zones (id, name) VALUES (?, ?)').run(zoneId, normalizedZone);
     } else {
       zoneId = zoneRecord.id;
     }
 
     // 2. Find or create Church under Zone
-    let churchRecord = db.prepare('SELECT id, name FROM churches WHERE zone_id = ? AND LOWER(name) = LOWER(?)').get(zoneId, normalizedChurch);
+    let churchRecord = await db.prepare('SELECT id, name FROM churches WHERE zone_id = ? AND LOWER(name) = LOWER(?)').get(zoneId, normalizedChurch);
     if (!churchRecord) {
       churchId = generateUUID();
-      db.prepare('INSERT INTO churches (id, zone_id, name) VALUES (?, ?, ?)').run(churchId, zoneId, normalizedChurch);
+      await db.prepare('INSERT INTO churches (id, zone_id, name) VALUES (?, ?, ?)').run(churchId, zoneId, normalizedChurch);
     } else {
       churchId = churchRecord.id;
     }
@@ -84,12 +84,12 @@ router.post('/register', (req, res) => {
     const passwordHash = bcrypt.hashSync(password, 10);
     const userId = generateUUID();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO users (id, full_name, email_or_phone, password_hash, role, church_id, zone_id)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(userId, fullName.trim(), cleanEmailOrPhone, passwordHash, finalRole, churchId, zoneId);
 
-    const userProfile = getUserProfile(userId);
+    const userProfile = await getUserProfile(userId);
     const token = generateToken(userProfile);
 
     res.status(201).json({
@@ -104,7 +104,7 @@ router.post('/register', (req, res) => {
 });
 
 // Login
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const { emailOrPhone, password } = req.body;
     if (!emailOrPhone || !password) {
@@ -112,7 +112,7 @@ router.post('/login', (req, res) => {
     }
 
     const cleanEmailOrPhone = emailOrPhone.trim().toLowerCase();
-    const userRecord = db.prepare('SELECT * FROM users WHERE email_or_phone = ?').get(cleanEmailOrPhone);
+    const userRecord = await db.prepare('SELECT * FROM users WHERE email_or_phone = ?').get(cleanEmailOrPhone);
 
     if (!userRecord) {
       return res.status(401).json({ error: 'No account found with this email/phone.' });
@@ -123,7 +123,7 @@ router.post('/login', (req, res) => {
       return res.status(401).json({ error: 'Incorrect password.' });
     }
 
-    const userProfile = getUserProfile(userRecord.id);
+    const userProfile = await getUserProfile(userRecord.id);
     const token = generateToken(userProfile);
 
     res.json({
@@ -138,9 +138,9 @@ router.post('/login', (req, res) => {
 });
 
 // Get current user profile
-router.get('/me', requireAuth, (req, res) => {
+router.get('/me', requireAuth, async (req, res) => {
   try {
-    const user = getUserProfile(req.user.id);
+    const user = await getUserProfile(req.user.id);
     if (!user) {
       return res.status(404).json({ error: 'User profile not found.' });
     }
@@ -151,10 +151,10 @@ router.get('/me', requireAuth, (req, res) => {
 });
 
 // Update Profile (e.g. rep edits church/zone or name)
-router.put('/profile', requireAuth, (req, res) => {
+router.put('/profile', requireAuth, async (req, res) => {
   try {
     const { fullName, zoneName, churchName } = req.body;
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found.' });
 
     let churchId = user.church_id;
@@ -165,19 +165,19 @@ router.put('/profile', requireAuth, (req, res) => {
       const normalizedChurch = normalizeTitleCase(churchName);
 
       // 1. Zone
-      let zoneRecord = db.prepare('SELECT id FROM zones WHERE LOWER(name) = LOWER(?)').get(normalizedZone);
+      let zoneRecord = await db.prepare('SELECT id FROM zones WHERE LOWER(name) = LOWER(?)').get(normalizedZone);
       if (!zoneRecord) {
         zoneId = generateUUID();
-        db.prepare('INSERT INTO zones (id, name) VALUES (?, ?)').run(zoneId, normalizedZone);
+        await db.prepare('INSERT INTO zones (id, name) VALUES (?, ?)').run(zoneId, normalizedZone);
       } else {
         zoneId = zoneRecord.id;
       }
 
       // 2. Church
-      let churchRecord = db.prepare('SELECT id FROM churches WHERE zone_id = ? AND LOWER(name) = LOWER(?)').get(zoneId, normalizedChurch);
+      let churchRecord = await db.prepare('SELECT id FROM churches WHERE zone_id = ? AND LOWER(name) = LOWER(?)').get(zoneId, normalizedChurch);
       if (!churchRecord) {
         churchId = generateUUID();
-        db.prepare('INSERT INTO churches (id, zone_id, name) VALUES (?, ?, ?)').run(churchId, zoneId, normalizedChurch);
+        await db.prepare('INSERT INTO churches (id, zone_id, name) VALUES (?, ?, ?)').run(churchId, zoneId, normalizedChurch);
       } else {
         churchId = churchRecord.id;
       }
@@ -185,13 +185,13 @@ router.put('/profile', requireAuth, (req, res) => {
 
     const newFullName = fullName ? fullName.trim() : user.full_name;
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE users 
       SET full_name = ?, church_id = ?, zone_id = ?
       WHERE id = ?
     `).run(newFullName, churchId, zoneId, req.user.id);
 
-    const updatedProfile = getUserProfile(req.user.id);
+    const updatedProfile = await getUserProfile(req.user.id);
     const token = generateToken(updatedProfile);
 
     res.json({

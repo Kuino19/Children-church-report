@@ -12,14 +12,14 @@ function cleanInt(val) {
 }
 
 // 1. Get Monthly Reports for a Specific Church
-router.get('/church/:churchId', requireAuth, (req, res) => {
+router.get('/church/:churchId', requireAuth, async (req, res) => {
   try {
     const { churchId } = req.params;
     const now = new Date();
     const year = cleanInt(req.query.year) || now.getFullYear();
     const month = cleanInt(req.query.month) || (now.getMonth() + 1);
 
-    const church = db.prepare(`
+    const church = await db.prepare(`
       SELECT c.*, z.name as zone_name
       FROM churches c
       JOIN zones z ON c.zone_id = z.id
@@ -30,7 +30,7 @@ router.get('/church/:churchId', requireAuth, (req, res) => {
       return res.status(404).json({ error: 'Church not found.' });
     }
 
-    const reports = db.prepare(`
+    const reports = await db.prepare(`
       SELECT * FROM weekly_reports
       WHERE church_id = ? AND report_year = ? AND report_month = ?
       ORDER BY week_number ASC
@@ -56,7 +56,7 @@ router.get('/church/:churchId', requireAuth, (req, res) => {
 });
 
 // 2. Submit / Upsert Weekly Report
-router.post('/submit', requireAuth, (req, res) => {
+router.post('/submit', requireAuth, async (req, res) => {
   try {
     const {
       churchId,
@@ -85,7 +85,7 @@ router.post('/submit', requireAuth, (req, res) => {
       return res.status(400).json({ error: 'No church assigned to this submission.' });
     }
 
-    const church = db.prepare('SELECT zone_id FROM churches WHERE id = ?').get(repChurchId);
+    const church = await db.prepare('SELECT zone_id FROM churches WHERE id = ?').get(repChurchId);
     if (!church) {
       return res.status(404).json({ error: 'Target church not found.' });
     }
@@ -114,7 +114,7 @@ router.post('/submit', requireAuth, (req, res) => {
     const cHealings = cleanInt(healings);
 
     // Check if report already exists for this (church_id, report_year, report_month, week_number)
-    const existing = db.prepare(`
+    const existing = await db.prepare(`
       SELECT id FROM weekly_reports
       WHERE church_id = ? AND report_year = ? AND report_month = ? AND week_number = ?
     `).get(repChurchId, reportYear, reportMonth, weekNum);
@@ -123,7 +123,7 @@ router.post('/submit', requireAuth, (req, res) => {
 
     if (existing) {
       // Update existing record
-      db.prepare(`
+      await db.prepare(`
         UPDATE weekly_reports
         SET 
           submitted_by = ?,
@@ -150,7 +150,7 @@ router.post('/submit', requireAuth, (req, res) => {
       );
     } else {
       // Insert new record
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO weekly_reports (
           id, church_id, zone_id, submitted_by, report_year, report_month, week_number,
           sunday_school, bible_study, prayer_meeting, visitors,
@@ -165,7 +165,7 @@ router.post('/submit', requireAuth, (req, res) => {
       );
     }
 
-    const savedRecord = db.prepare('SELECT * FROM weekly_reports WHERE id = ?').get(reportId);
+    const savedRecord = await db.prepare('SELECT * FROM weekly_reports WHERE id = ?').get(reportId);
 
     res.json({
       message: `Week ${weekNum} report saved successfully.`,
@@ -178,7 +178,7 @@ router.post('/submit', requireAuth, (req, res) => {
 });
 
 // 3. District Collation & Submission Tracking Engine
-router.get('/district/collation', requireAuth, (req, res) => {
+router.get('/district/collation', requireAuth, async (req, res) => {
   try {
     const now = new Date();
     const year = cleanInt(req.query.year) || now.getFullYear();
@@ -186,8 +186,8 @@ router.get('/district/collation', requireAuth, (req, res) => {
     const weekFilter = req.query.week || 'all'; // 'all', '1', '2', '3', '4', '5'
     const aggregationMode = req.query.aggregationMode || 'average'; // 'average' (headcount) or 'cumulative' (sum)
 
-    const allZones = db.prepare('SELECT * FROM zones ORDER BY name ASC').all();
-    const allChurches = db.prepare(`
+    const allZones = await db.prepare('SELECT * FROM zones ORDER BY name ASC').all();
+    const allChurches = await db.prepare(`
       SELECT c.*, z.name as zone_name
       FROM churches c
       JOIN zones z ON c.zone_id = z.id
@@ -195,7 +195,7 @@ router.get('/district/collation', requireAuth, (req, res) => {
     `).all();
 
     // Query all reports for this month/year
-    const reports = db.prepare(`
+    const reports = await db.prepare(`
       SELECT r.*, u.full_name as submitter_name
       FROM weekly_reports r
       LEFT JOIN users u ON r.submitted_by = u.id
