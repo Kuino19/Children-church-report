@@ -4,13 +4,23 @@ import { reportsApi } from '../api';
 import type { WeeklyReport } from '../types';
 import { 
   CheckCircle2, Save, Users, HeartHandshake, Sparkles, 
-  AlertCircle, BarChart3, RefreshCw 
+  AlertCircle, BarChart3, RefreshCw, WifiOff, UploadCloud, X, ShieldCheck
 } from 'lucide-react';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
+
+interface OfflineDraft {
+  id: string;
+  churchId: string;
+  year: number;
+  month: number;
+  weekNumber: number;
+  formData: any;
+  timestamp: number;
+}
 
 export const RepDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -49,6 +59,79 @@ export const RepDashboard: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [offlineDrafts, setOfflineDrafts] = useState<OfflineDraft[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Dynamic Year List
+  const currentYear = now.getFullYear();
+  const availableYears = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
+
+  // Load offline drafts from localStorage on mount & listen to network status
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('church_offline_drafts');
+      if (stored) {
+        setOfflineDrafts(JSON.parse(stored));
+      }
+    } catch {
+      // Ignore
+    }
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      triggerSync();
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const triggerSync = async () => {
+    try {
+      const stored = localStorage.getItem('church_offline_drafts');
+      if (!stored) return;
+      const drafts: OfflineDraft[] = JSON.parse(stored);
+      if (!drafts.length) return;
+
+      setIsSyncing(true);
+      const remaining: OfflineDraft[] = [];
+
+      for (const draft of drafts) {
+        try {
+          await reportsApi.submitReport({
+            churchId: draft.churchId,
+            year: draft.year,
+            month: draft.month,
+            weekNumber: draft.weekNumber,
+            ...draft.formData
+          });
+        } catch {
+          remaining.push(draft);
+        }
+      }
+
+      setOfflineDrafts(remaining);
+      localStorage.setItem('church_offline_drafts', JSON.stringify(remaining));
+
+      if (remaining.length === 0) {
+        setToastMessage('All offline reports synced successfully to cloud!');
+        setTimeout(() => setToastMessage(null), 3500);
+        loadReports();
+      }
+    } catch {
+      // Ignore
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Load Church reports when month/year changes
   const loadReports = async () => {
@@ -148,11 +231,23 @@ export const RepDashboard: React.FC = () => {
     }));
   };
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setShowConfirmModal(true);
+  };
+
+  const executeSave = async () => {
     setIsSaving(true);
     setToastMessage(null);
     setErrorMessage(null);
+
+    // If offline or network unavailable, save directly to offline drafts
+    if (!navigator.onLine) {
+      saveOfflineDraft();
+      setIsSaving(false);
+      setShowConfirmModal(false);
+      return;
+    }
 
     try {
       const res = await reportsApi.submitReport({
@@ -171,11 +266,67 @@ export const RepDashboard: React.FC = () => {
 
       setToastMessage(`${selectedWeek}${getOrdinal(selectedWeek)} Sunday report saved successfully!`);
       setTimeout(() => setToastMessage(null), 3500);
+      setShowConfirmModal(false);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to save weekly report.');
+      // Network failure fallback
+      if (!navigator.onLine || err.message?.includes('fetch') || err.message?.includes('network')) {
+        saveOfflineDraft();
+        setShowConfirmModal(false);
+      } else {
+        setErrorMessage(err.message || 'Failed to save weekly report.');
+      }
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const saveOfflineDraft = () => {
+    if (!user?.church_id) return;
+    const draftId = `${user.church_id}_${selectedYear}_${selectedMonth}_${selectedWeek}`;
+    const newDraft: OfflineDraft = {
+      id: draftId,
+      churchId: user.church_id,
+      year: selectedYear,
+      month: selectedMonth,
+      weekNumber: selectedWeek,
+      formData: { ...formData },
+      timestamp: Date.now()
+    };
+
+    const updatedDrafts = offlineDrafts.filter(d => d.id !== draftId).concat(newDraft);
+    setOfflineDrafts(updatedDrafts);
+    localStorage.setItem('church_offline_drafts', JSON.stringify(updatedDrafts));
+
+    // Update UI weeksData locally
+    setWeeksData(prev => ({
+      ...prev,
+      [selectedWeek]: {
+        id: draftId,
+        church_id: user.church_id!,
+        zone_id: user.zone_id || '',
+        submitted_by: user.id,
+        report_year: selectedYear,
+        report_month: selectedMonth,
+        week_number: selectedWeek,
+        sunday_school: formData.sundaySchool,
+        bible_study: formData.bibleStudy,
+        prayer_meeting: formData.prayerMeeting,
+        visitors: formData.visitors,
+        children_count: formData.childrenCount,
+        cadets_count: formData.cadetsCount,
+        torchbearers_count: formData.torchbearersCount,
+        candlelighters_count: formData.candlelightersCount,
+        teachers_count: formData.teachersCount,
+        salvations: formData.salvations,
+        holy_ghost_baptisms: formData.holyGhostBaptisms,
+        healings: formData.healings,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+    }));
+
+    setToastMessage(`⚡ Saved offline on phone! Will sync when connection returns.`);
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
   const getOrdinal = (n: number) => {
@@ -204,9 +355,36 @@ export const RepDashboard: React.FC = () => {
     <div className="max-w-3xl mx-auto px-4 py-6 pb-24">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white text-sm font-bold px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2 animate-bounce">
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white text-sm font-bold px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2 transition-all">
           <CheckCircle2 className="w-5 h-5" />
           <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Offline Sync Banner if drafts exist */}
+      {offlineDrafts.length > 0 && (
+        <div className="mb-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-900">
+          <div className="flex items-center gap-2.5">
+            <WifiOff className="w-5 h-5 text-amber-600 shrink-0" />
+            <div>
+              <p className="text-xs font-bold">
+                {offlineDrafts.length} report(s) saved on this phone waiting to sync.
+              </p>
+              <p className="text-[11px] text-amber-700">
+                They will sync automatically when your internet connection is restored.
+              </p>
+            </div>
+          </div>
+          {isOnline && (
+            <button
+              onClick={triggerSync}
+              disabled={isSyncing}
+              className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <UploadCloud className="w-3.5 h-3.5" />
+              <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -256,7 +434,7 @@ export const RepDashboard: React.FC = () => {
               onChange={e => setSelectedYear(parseInt(e.target.value, 10))}
               className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-100 cursor-pointer"
             >
-              {[2024, 2025, 2026, 2027, 2028].map(y => (
+              {availableYears.map(y => (
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
@@ -313,7 +491,7 @@ export const RepDashboard: React.FC = () => {
       )}
 
       {/* Main Submission Form */}
-      <form onSubmit={handleSave} className="space-y-5">
+      <form onSubmit={handleFormSubmit} className="space-y-5">
         {/* Category 1: Service Attendance & Visitors */}
         <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200/80">
           <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
@@ -575,6 +753,88 @@ export const RepDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Submission Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Confirm Weekly Submission
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {selectedWeek}{getOrdinal(selectedWeek)} Sunday • {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 mb-4">
+              Please double check the figures below before saving for <strong>{user?.church_name}</strong>:
+            </p>
+
+            <div className="space-y-3 mb-6 bg-slate-50 rounded-2xl p-4 border border-slate-200/70 text-xs">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                <span className="font-bold text-slate-700">1. Service Attendance</span>
+                <span className="text-slate-900 font-semibold text-right">
+                  SS: {formData.sundaySchool} | BS: {formData.bibleStudy} | PM: {formData.prayerMeeting} | Visitors: {formData.visitors}
+                </span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                <span className="font-bold text-slate-700">2. Demographics</span>
+                <span className="text-slate-900 font-semibold text-right">
+                  Children: {formData.childrenCount} (Cadets: {formData.cadetsCount}, Torch: {formData.torchbearersCount}, Candle: {formData.candlelightersCount}) | Teachers: {formData.teachersCount}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-slate-700">3. Spiritual Harvest</span>
+                <span className="text-slate-900 font-semibold text-right">
+                  Salvations: {formData.salvations} | Baptisms: {formData.holyGhostBaptisms} | Healings: {formData.healings}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 py-3 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                Review & Edit
+              </button>
+              <button
+                type="button"
+                onClick={executeSave}
+                disabled={isSaving}
+                className="flex-1 py-3 text-xs font-extrabold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md shadow-indigo-200 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Yes, Confirm & Submit</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

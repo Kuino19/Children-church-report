@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { db, normalizeTitleCase, generateUUID } = require('../db');
-const { generateToken, requireAuth, ADMIN_INVITE_CODE } = require('../auth');
+const { generateToken, requireAuth, requireAdmin, ADMIN_INVITE_CODE } = require('../auth');
 
 const router = express.Router();
 
@@ -34,6 +34,10 @@ router.post('/register', async (req, res) => {
 
     if (!fullName || !emailOrPhone || !password) {
       return res.status(400).json({ error: 'Full name, email/phone, and password are required.' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
     }
 
     const cleanEmailOrPhone = emailOrPhone.trim().toLowerCase();
@@ -202,6 +206,62 @@ router.put('/profile', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Update profile error:', err);
     res.status(500).json({ error: 'Failed to update profile: ' + err.message });
+  }
+});
+
+// Admin: List all Church Reps
+router.get('/admin/reps', requireAdmin, async (req, res) => {
+  try {
+    const reps = await db.prepare(`
+      SELECT 
+        u.id, u.full_name, u.email_or_phone, u.role, u.church_id, u.zone_id, u.created_at,
+        c.name as church_name,
+        z.name as zone_name
+      FROM users u
+      LEFT JOIN churches c ON u.church_id = c.id
+      LEFT JOIN zones z ON u.zone_id = z.id
+      WHERE u.role = 'church_rep'
+      ORDER BY z.name ASC, c.name ASC
+    `).all();
+
+    res.json({ reps });
+  } catch (err) {
+    console.error('Fetch reps error:', err);
+    res.status(500).json({ error: 'Failed to fetch church reps: ' + err.message });
+  }
+});
+
+// Admin: Reset Password for a Church Rep
+router.post('/admin/reset-password', requireAdmin, async (req, res) => {
+  try {
+    const { userId, churchId, newPassword = 'reppassword123' } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long.' });
+    }
+
+    let user = null;
+    if (userId) {
+      user = await db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    } else if (churchId) {
+      user = await db.prepare('SELECT * FROM users WHERE church_id = ? AND role = ?').get(churchId, 'church_rep');
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: 'Church Representative account not found.' });
+    }
+
+    const passwordHash = bcrypt.hashSync(newPassword, 10);
+    await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, user.id);
+
+    res.json({
+      message: `Password for ${user.full_name} (${user.email_or_phone}) has been reset.`,
+      emailOrPhone: user.email_or_phone,
+      newPassword
+    });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ error: 'Failed to reset password: ' + err.message });
   }
 });
 

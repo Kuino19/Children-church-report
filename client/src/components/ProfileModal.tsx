@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Save, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { authApi } from '../api';
+import { authApi, metadataApi } from '../api';
+import { SmartCombobox } from './SmartCombobox';
+import type { Zone } from '../types';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -13,6 +15,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [zoneName, setZoneName] = useState(user?.zone_name || '');
   const [churchName, setChurchName] = useState(user?.church_name || '');
+  const [existingZones, setExistingZones] = useState<Zone[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -25,7 +28,23 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
     }
   }, [user, isOpen]);
 
+  useEffect(() => {
+    if (isOpen) {
+      metadataApi.getZones().then(res => {
+        if (res && res.zones) {
+          setExistingZones(res.zones);
+        }
+      }).catch(() => {});
+    }
+  }, [isOpen]);
+
   if (!isOpen || !user) return null;
+
+  const zoneOptions = existingZones.map(z => z.name);
+  const matchedZone = existingZones.find(z => z.name.toLowerCase() === zoneName.trim().toLowerCase());
+  const churchOptions = matchedZone 
+    ? matchedZone.churches.map(c => c.name)
+    : existingZones.flatMap(z => z.churches.map(c => c.name));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,37 +119,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
           {user.role === 'church_rep' && (
             <>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Assigned Zone Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Type your Zone Name (e.g. Zone 1)"
+                <SmartCombobox
+                  label="Assigned Zone Name"
+                  placeholder="Select or type your Zone (e.g. IDIMU)"
+                  options={zoneOptions}
                   value={zoneName}
-                  onChange={e => setZoneName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-100 focus:border-indigo-600 font-medium"
+                  onChange={setZoneName}
+                  helperText="Select from existing zones or type to create a new one."
                 />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Type your Zone name directly.
-                </p>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Assigned Church Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Type your Church Name (e.g. Grace Sanctuary)"
+                <SmartCombobox
+                  label="Assigned Church Name"
+                  placeholder="Select or type your Church (e.g. Idimu ZHQ)"
+                  options={churchOptions}
                   value={churchName}
-                  onChange={e => setChurchName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-100 focus:border-indigo-600 font-medium"
+                  onChange={setChurchName}
+                  helperText="Select your local church assembly name."
                 />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Type your local church assembly name.
-                </p>
               </div>
             </>
           )}

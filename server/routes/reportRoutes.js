@@ -341,12 +341,15 @@ router.get('/district/collation', requireAuth, async (req, res) => {
         }
 
         const aggregated = calculateMetrics(churchReports);
+        const latestReport = churchReports.slice().sort((a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0))[0];
 
         return {
           churchId: c.id,
           churchName: c.name,
           weeks: weeksObj,
-          metrics: aggregated
+          metrics: aggregated,
+          lastSubmittedBy: latestReport ? latestReport.submitter_name : null,
+          lastUpdatedAt: latestReport ? (latestReport.updated_at || latestReport.created_at) : null
         };
       });
 

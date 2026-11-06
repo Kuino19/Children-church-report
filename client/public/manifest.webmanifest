@@ -1,0 +1,26 @@
+{
+  "name": "IDIMU CHILDREN'S MINISTRY - DATA & SPIRITUAL REPORT PLATFORM",
+  "short_name": "Idimu Reports",
+  "description": "Weekly Sunday Collation and Spiritual Reporting Portal for Foursquare Idimu Missionary District",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#4338ca",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/foursquare-logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/foursquare-logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -21,10 +21,12 @@ import {
   Trash2,
   X,
   Save,
-  Check
+  Check,
+  Key,
+  MessageCircle
 } from 'lucide-react';
 import type { CollationResponse, Zone } from '../types';
-import { reportsApi, metadataApi } from '../api';
+import { reportsApi, metadataApi, authApi } from '../api';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -231,6 +233,56 @@ export const AdminDashboard: React.FC = () => {
       .filter(Boolean) as typeof collation.zones;
   }, [collation, searchQuery]);
 
+  // Dynamic Year List
+  const currentYear = new Date().getFullYear();
+  const availableYears = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
+
+  // WhatsApp Broadcast for pending churches
+  const handleWhatsAppBroadcast = () => {
+    if (!collation) return;
+    const pendingByZone: { [zoneName: string]: string[] } = {};
+    for (const z of collation.complianceByZone) {
+      const pendingList = z.churches.filter((ch) =>
+        selectedWeek === 'all'
+          ? ch.submittedCount === 0
+          : !ch.submittedWeeks.includes(parseInt(selectedWeek, 10))
+      );
+      if (pendingList.length > 0) {
+        pendingByZone[z.zoneName] = pendingList.map((c) => c.churchName);
+      }
+    }
+
+    const totalPendingCount = Object.values(pendingByZone).reduce((a, b) => a + b.length, 0);
+    if (totalPendingCount === 0) {
+      alert('Hallelujah! All churches have submitted their reports for this period.');
+      return;
+    }
+
+    let msg = `*FOURSQUARE IDIMU MISSIONARY DISTRICT*\n*CHILDREN'S MINISTRY - REPORTING REMINDER*\nPeriod: ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear} (${selectedWeek === 'all' ? 'Full Month' : `Week ${selectedWeek}`})\n\nCalvary greetings esteemed leaders! Kindly log your weekly Sunday reports on the portal. The following ${totalPendingCount} church assembly(ies) are currently pending:\n\n`;
+
+    for (const [zName, chList] of Object.entries(pendingByZone)) {
+      msg += `📍 *${zName}*\n${chList.map((c) => `  • ${c}`).join('\n')}\n\n`;
+    }
+
+    msg += `🔗 Portal: https://children-church-report.vercel.app\n\nThank you and God bless your labor of love! 🙏`;
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  };
+
+  // Reset Rep Password
+  const handleResetRepPassword = async (churchId: string, churchName: string) => {
+    if (!window.confirm(`Reset login password for ${churchName}'s representative to default 'reppassword123'?`)) {
+      return;
+    }
+    try {
+      const res = await authApi.adminResetPassword({ churchId, newPassword: 'reppassword123' });
+      setModalSuccessMsg(`Password for ${churchName} rep reset to: reppassword123 (Login: ${res.emailOrPhone})`);
+      setTimeout(() => setModalSuccessMsg(null), 8000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to reset rep password.');
+    }
+  };
+
   // Overall compliance stats
   const complianceStats = useMemo(() => {
     if (!collation) return { totalChurches: 0, submittedCount: 0, percentage: 0 };
@@ -353,7 +405,7 @@ export const AdminDashboard: React.FC = () => {
                   onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
                   className="bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden cursor-pointer"
                 >
-                  {[2024, 2025, 2026, 2027].map((y) => (
+                  {availableYears.map((y) => (
                     <option key={y} value={y}>
                       {y}
                     </option>
@@ -602,13 +654,24 @@ export const AdminDashboard: React.FC = () => {
                 </p>
               </div>
 
-              <button
-                onClick={() => setShowComplianceDrawer(!showComplianceDrawer)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
-              >
-                <span>{showComplianceDrawer ? 'Hide Details' : 'View Submitted vs Pending'}</span>
-                {showComplianceDrawer ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleWhatsAppBroadcast}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-all cursor-pointer"
+                  title="Broadcast pending report reminder to WhatsApp group"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>WhatsApp Broadcast</span>
+                </button>
+
+                <button
+                  onClick={() => setShowComplianceDrawer(!showComplianceDrawer)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                >
+                  <span>{showComplianceDrawer ? 'Hide Details' : 'View Submitted vs Pending'}</span>
+                  {showComplianceDrawer ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             {/* Progress Bar */}
@@ -663,10 +726,22 @@ export const AdminDashboard: React.FC = () => {
                                   <span>{ch.submittedCount} Sun</span>
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-100/80 px-1.5 py-0.5 rounded">
-                                  <Clock className="w-3 h-3" />
-                                  <span>Pending</span>
-                                </span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-100/80 px-1.5 py-0.5 rounded">
+                                    <Clock className="w-3 h-3" />
+                                    <span>Pending</span>
+                                  </span>
+                                  <a
+                                    href={`https://wa.me/?text=${encodeURIComponent(`Calvary greetings! Gentle reminder from Foursquare Idimu Missionary District Children's Ministry. Kindly submit the weekly Sunday report for *${ch.churchName}* (${zone.zoneName}) for ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear} on the portal:\nhttps://children-church-report.vercel.app`)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 px-1.5 py-0.5 rounded transition-colors"
+                                    title={`Send WhatsApp reminder to ${ch.churchName}`}
+                                  >
+                                    <MessageCircle className="w-2.5 h-2.5" />
+                                    <span>Remind</span>
+                                  </a>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -773,7 +848,12 @@ export const AdminDashboard: React.FC = () => {
                           zone.churches.map((church) => (
                             <tr key={church.churchId} className="hover:bg-slate-50/90 transition-colors">
                               <td className="py-2.5 px-4 sticky left-0 bg-white hover:bg-slate-50/90 z-10 pl-9 font-medium text-slate-900 border-r border-slate-100">
-                                {church.churchName}
+                                <div>{church.churchName}</div>
+                                {church.lastSubmittedBy && (
+                                  <div className="text-[10px] text-slate-400 font-normal truncate max-w-[200px]">
+                                    By: {church.lastSubmittedBy} {church.lastUpdatedAt && `• ${new Date(church.lastUpdatedAt).toLocaleDateString()}`}
+                                  </div>
+                                )}
                               </td>
                               <td className="py-2.5 px-3 text-center">
                                 <span
@@ -996,7 +1076,14 @@ export const AdminDashboard: React.FC = () => {
                             className="py-2 flex items-center justify-between text-xs hover:bg-slate-50 px-2 rounded-lg"
                           >
                             <span className="font-medium text-slate-800">{church.name}</span>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => handleResetRepPassword(church.id, church.name)}
+                                className="p-1 text-slate-400 hover:text-amber-600 transition-colors"
+                                title="Reset Rep Password to default"
+                              >
+                                <Key className="w-3.5 h-3.5" />
+                              </button>
                               <button
                                 onClick={() =>
                                   setEditingItem({

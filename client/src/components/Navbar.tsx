@@ -1,5 +1,5 @@
-import React from 'react';
-import { LogOut, User as UserIcon, Printer } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LogOut, User as UserIcon, Printer, Download, WifiOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
@@ -10,6 +10,42 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ onOpenProfile, onPrint, showPrint = false }) => {
   const { user, logout } = useAuth();
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+    }
+  };
+
+  const handleLogoutClick = () => {
+    if (window.confirm('Are you sure you want to sign out of the portal?')) {
+      logout();
+    }
+  };
 
   if (!user) return null;
 
@@ -28,9 +64,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenProfile, onPrint, showPrin
             />
           </div>
           <div>
-            <h1 className="text-xs sm:text-sm md:text-base font-extrabold text-slate-900 tracking-tight leading-tight uppercase">
-              IDIMU CHILDREN'S MINISTRY - DATA & SPIRITUAL REPORT PLATFORM
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xs sm:text-sm md:text-base font-extrabold text-slate-900 tracking-tight leading-tight uppercase">
+                IDIMU CHILDREN'S MINISTRY - DATA & SPIRITUAL REPORT PLATFORM
+              </h1>
+              {!isOnline && (
+                <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                  <WifiOff className="w-3 h-3" /> Offline Mode
+                </span>
+              )}
+            </div>
             <p className="text-[11px] font-medium text-slate-500">
               {isAdmin ? 'District Coordinator Central Collation' : `${user.church_name || 'Local Church'} • ${user.zone_name || 'Zone'}`}
             </p>
@@ -39,6 +82,24 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenProfile, onPrint, showPrin
 
         {/* Action Controls */}
         <div className="flex items-center gap-2">
+          {!isOnline && (
+            <span className="sm:hidden inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+              <WifiOff className="w-3 h-3" /> Offline
+            </span>
+          )}
+
+          {/* PWA Install Button */}
+          {installPrompt && (
+            <button
+              onClick={handleInstallClick}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-sm cursor-pointer animate-pulse"
+              title="Install app to your home screen"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Install App</span>
+            </button>
+          )}
+
           {showPrint && onPrint && (
             <button
               onClick={onPrint}
@@ -64,7 +125,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenProfile, onPrint, showPrin
 
           {/* Logout Button */}
           <button
-            onClick={logout}
+            onClick={handleLogoutClick}
             className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
             title="Log out"
           >

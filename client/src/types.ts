@@ -73,6 +73,20 @@ export interface ChurchRowCollation {
   churchName: string;
   weeks: { [key: number]: WeeklyReport | null };
   metrics: MetricsSummary;
+  lastSubmittedBy?: string | null;
+  lastUpdatedAt?: string | null;
+}
+
+export interface RepUser {
+  id: string;
+  full_name: string;
+  email_or_phone: string;
+  role: UserRole;
+  church_id: string | null;
+  zone_id: string | null;
+  church_name?: string;
+  zone_name?: string;
+  created_at: string;
 }
 
 export interface ZoneCollation {

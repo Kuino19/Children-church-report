@@ -66,12 +66,26 @@ export const authApi = {
     apiRequest<{ user: User; token: string }>('/auth/profile', {
       method: 'PUT',
       body: JSON.stringify(payload)
+    }),
+
+  adminGetReps: () =>
+    apiRequest<{ reps: User[] }>('/auth/admin/reps'),
+
+  adminResetPassword: (payload: { userId?: string; churchId?: string; newPassword?: string }) =>
+    apiRequest<{ message: string; emailOrPhone: string; newPassword: string }>('/auth/admin/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(payload)
     })
 };
 
 // Metadata API
 export const metadataApi = {
   getZones: () => apiRequest<{ zones: Zone[] }>('/metadata/zones'),
+
+  getChurches: (zoneId?: string) =>
+    apiRequest<{ churches: { id: string; name: string; zone_id: string; zone_name: string }[] }>(
+      zoneId ? `/metadata/churches?zoneId=${zoneId}` : '/metadata/churches'
+    ),
   
   renameZone: (id: string, name: string) =>
     apiRequest<{ message: string }>(`/metadata/admin/zones/${id}`, {

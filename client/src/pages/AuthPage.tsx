@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Church, ShieldCheck, UserPlus, LogIn, Sparkles, AlertCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { SmartCombobox } from '../components/SmartCombobox';
+import { metadataApi } from '../api';
+import type { Zone } from '../types';
 
 export const AuthPage: React.FC = () => {
   const { login, register } = useAuth();
@@ -12,6 +15,19 @@ export const AuthPage: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [zoneName, setZoneName] = useState('');
   const [churchName, setChurchName] = useState('');
+
+  // Metadata for SmartCombobox
+  const [existingZones, setExistingZones] = useState<Zone[]>([]);
+
+  useEffect(() => {
+    metadataApi.getZones().then(res => {
+      if (res && res.zones) {
+        setExistingZones(res.zones);
+      }
+    }).catch(() => {
+      // Non-blocking if offline
+    });
+  }, []);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,8 +50,14 @@ export const AuthPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
 
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      setIsLoading(false);
+      return;
+    }
+
     if (!zoneName.trim() || !churchName.trim()) {
-      setError('Please type in both your Zone Name and Church Name.');
+      setError('Please select or type both your Zone Name and Church Name.');
       setIsLoading(false);
       return;
     }
@@ -55,6 +77,13 @@ export const AuthPage: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  // Compute options for SmartCombobox
+  const zoneOptions = existingZones.map(z => z.name);
+  const matchedZone = existingZones.find(z => z.name.toLowerCase() === zoneName.trim().toLowerCase());
+  const churchOptions = matchedZone 
+    ? matchedZone.churches.map(c => c.name)
+    : existingZones.flatMap(z => z.churches.map(c => c.name));
 
   // Quick Demo Logins
   const fillDemoAdmin = () => {
@@ -210,40 +239,28 @@ export const AuthPage: React.FC = () => {
                 />
               </div>
 
-              {/* Reps type their Zone by themselves */}
+              {/* Reps select or type their Zone */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Zone Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Type your Zone Name (e.g. Zone 1)"
+                <SmartCombobox
+                  label="Zone Name"
+                  placeholder="Select or type your Zone (e.g. IDIMU)"
+                  options={zoneOptions}
                   value={zoneName}
-                  onChange={e => setZoneName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-100 focus:border-indigo-600 font-medium"
+                  onChange={setZoneName}
+                  helperText="Select from existing zones or type to create a new one."
                 />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Type your assigned Zone by yourself (e.g. Zone 1, Zone 2).
-                </p>
               </div>
 
-              {/* Reps type their Church Name by themselves */}
+              {/* Reps select or type their Church Name */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Church Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Type your Church Name (e.g. Grace Sanctuary)"
+                <SmartCombobox
+                  label="Church Name"
+                  placeholder="Select or type your Church (e.g. Idimu ZHQ)"
+                  options={churchOptions}
                   value={churchName}
-                  onChange={e => setChurchName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-100 focus:border-indigo-600 font-medium"
+                  onChange={setChurchName}
+                  helperText="Select your assembly or type a new church name."
                 />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Type your local church assembly name.
-                </p>
               </div>
 
               <button

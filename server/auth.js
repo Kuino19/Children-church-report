@@ -1,6 +1,9 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'district-church-secret-key-2026';
+const JWT_SECRET = process.env.JWT_SECRET || 'district-church-secret-key-2026-prod-fallback';
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  console.warn('⚠️ WARNING: JWT_SECRET environment variable is not set in production. Using fallback secret.');
+}
 const ADMIN_INVITE_CODE = 'DISTRICT2026';
 
 function generateToken(user) {
