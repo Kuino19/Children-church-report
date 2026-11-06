@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node server/server.js",
-    "build": "npm --prefix client install && npm --prefix client run build",
+    "build": "node build.cjs",
     "install:all": "npm install && npm --prefix client install",
     "build:client": "npm --prefix client run build",
     "dev:client": "npm --prefix client run dev",
