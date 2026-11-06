@@ -19,10 +19,20 @@ export async function apiRequest<T>(endpoint: string, options: RequestInit = {})
     headers
   });
 
-  const data = await response.json();
+  const text = await response.text();
+  let data: any = null;
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    if (!response.ok) {
+      throw new Error(`Server returned HTTP ${response.status}: Please make sure the church reports server is running.`);
+    }
+    throw new Error('Received unexpected non-JSON response from server.');
+  }
 
   if (!response.ok) {
-    throw new Error(data.error || 'Request failed');
+    throw new Error(data?.error || `Request failed with status ${response.status}`);
   }
 
   return data as T;

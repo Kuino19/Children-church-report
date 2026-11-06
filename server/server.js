@@ -25,6 +25,19 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', name: 'Foursquare Idimu Missionary District Reporting API', version: '1.0.0' });
 });
 
+// 404 for unhandled API routes (always return JSON)
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: `API route ${req.method} ${req.originalUrl} not found` });
+});
+
+// Global error handler for API (always return JSON)
+app.use((err, req, res, next) => {
+  console.error('[Server Error]', err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error'
+  });
+});
+
 // Serve frontend in production if built
 const clientDist = path.join(__dirname, '..', 'client', 'dist');
 if (fs.existsSync(clientDist)) {
