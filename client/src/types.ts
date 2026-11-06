@@ -36,17 +36,23 @@ export interface WeeklyReport {
   report_month: number;
   week_number: number;
   sunday_school: number;
+  worship_attendance: number;
   bible_study: number;
   prayer_meeting: number;
   visitors: number;
   children_count: number;
   cadets_count: number;
-  torchbearers_count: number;
+  cupbearers_count: number;
+  torchbearers_count?: number;
   candlelighters_count: number;
   teachers_count: number;
+  bible_club_teachers: number;
+  bible_club_children: number;
   salvations: number;
   holy_ghost_baptisms: number;
   healings: number;
+  special_programme?: string;
+  forthcoming_programme?: string;
   created_at: string;
   updated_at: string;
 }
@@ -54,15 +60,19 @@ export interface WeeklyReport {
 export interface MetricsSummary {
   weeksCount: number;
   sundaySchool: number;
+  worshipAttendance: number;
   bibleStudy: number;
   prayerMeeting: number;
   visitors: number;
   totalAttendance: number;
   childrenCount: number;
   cadetsCount: number;
-  torchbearersCount: number;
+  cupbearersCount: number;
+  torchbearersCount?: number;
   candlelightersCount: number;
   teachersCount: number;
+  bibleClubTeachers: number;
+  bibleClubChildren: number;
   salvations: number;
   holyGhostBaptisms: number;
   healings: number;
@@ -73,6 +83,8 @@ export interface ChurchRowCollation {
   churchName: string;
   weeks: { [key: number]: WeeklyReport | null };
   metrics: MetricsSummary;
+  specialProgrammes?: string[];
+  forthcomingProgrammes?: string[];
   lastSubmittedBy?: string | null;
   lastUpdatedAt?: string | null;
 }

@@ -121,17 +121,23 @@ export const reportsApi = {
     month: number;
     weekNumber: number;
     sundaySchool: number;
+    worshipAttendance: number;
     bibleStudy: number;
     prayerMeeting: number;
     visitors: number;
     childrenCount: number;
     cadetsCount: number;
-    torchbearersCount: number;
+    cupbearersCount: number;
+    torchbearersCount?: number;
     candlelightersCount: number;
     teachersCount: number;
+    bibleClubTeachers: number;
+    bibleClubChildren: number;
     salvations: number;
     holyGhostBaptisms: number;
     healings: number;
+    specialProgramme?: string;
+    forthcomingProgramme?: string;
   }) =>
     apiRequest<{ message: string; report: WeeklyReport }>('/reports/submit', {
       method: 'POST',

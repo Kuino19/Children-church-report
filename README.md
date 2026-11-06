@@ -62,9 +62,11 @@ This project is pre-configured for 1-click deployment on **Vercel** with full se
 - **Persistent Profile & Context:** Reps register or log in directly to their assigned Church and Zone.
 - **Sunday Selector (1st – 5th Sunday):** Clean horizontal pill tabs with green badges (`✓ Saved`) indicating completed submissions. Selecting an existing week loads the saved figures for instant review or edits.
 - **Categorized Numeric Inputs (`inputmode="numeric"`):**
-  1. **Service Attendance:** Sunday School, Bible Study, Prayer Meeting, Visitors, and Auto-calculated Total Attendance.
-  2. **Demographics & Workforce:** Children Count, Cadets, Torchbearers, Candlelighters, and Teachers (*explicit helper text: "Include Mamas in teachers count"*).
-  3. **Spiritual Harvest:** Salvations, Holy Ghost Baptisms, and Healings.
+  1. **Service Attendance:** Sunday School, Worship Attendance, Bible Study, Prayer Meeting, Visitors, and Auto-calculated Total Attendance.
+  2. **Demographics & Workforce:** Children Count, Cadets, Cupbearers, Candlelighters, and Teachers.
+  3. **Bible Club Attendance:** Children and Teachers.
+  4. **Spiritual Report:** Salvations, Holy Ghost Baptisms, and Healings.
+  5. **Special & Forthcoming Programmes:** Special Events Held and Upcoming Events.
 - **Auto-Calculated Monthly Summary:** Bottom card providing the rep with real-time monthly rollup metrics.
 
 ### 🛡️ District Coordinator Dashboard

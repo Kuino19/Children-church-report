@@ -23,9 +23,10 @@ import {
   Save,
   Check,
   Key,
-  MessageCircle
+  MessageCircle,
+  Sparkles
 } from 'lucide-react';
-import type { CollationResponse, Zone } from '../types';
+import type { CollationResponse, Zone, ChurchRowCollation } from '../types';
 import { reportsApi, metadataApi, authApi } from '../api';
 
 const MONTH_NAMES = [
@@ -48,6 +49,7 @@ export const AdminDashboard: React.FC = () => {
   const [expandedZones, setExpandedZones] = useState<{ [zoneId: string]: boolean }>({});
   const [showComplianceDrawer, setShowComplianceDrawer] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedChurchProgrammes, setSelectedChurchProgrammes] = useState<ChurchRowCollation | null>(null);
 
   // Zone & Church Management Modal
   const [showManageModal, setShowManageModal] = useState<boolean>(false);
@@ -118,41 +120,54 @@ export const AdminDashboard: React.FC = () => {
       'Church Name',
       'Submissions',
       'Sunday School',
+      'Worship Attendance',
       'Bible Study',
       'Prayer Meeting',
       'Visitors',
       'Total Attendance',
       'Children',
       'Cadets',
-      'Torchbearers',
+      'Cupbearers',
       'Candlelighters',
-      'Teachers (Incl Mamas)',
+      'Teachers',
+      'Bible Club Children',
+      'Bible Club Teachers',
       'Salvations',
       'Holy Ghost Baptisms',
-      'Healings'
+      'Healings',
+      'Special Programmes',
+      'Forthcoming Programmes'
     ];
 
     const rows: string[][] = [];
 
     collation.zones.forEach((z) => {
       z.churches.forEach((c) => {
+        const specProg = (c.specialProgrammes || []).filter(Boolean).join(' | ').replace(/"/g, '""');
+        const forthProg = (c.forthcomingProgrammes || []).filter(Boolean).join(' | ').replace(/"/g, '""');
+
         rows.push([
           `"${z.zoneName}"`,
           `"${c.churchName}"`,
           `${c.metrics.weeksCount}`,
           `${c.metrics.sundaySchool}`,
+          `${c.metrics.worshipAttendance}`,
           `${c.metrics.bibleStudy}`,
           `${c.metrics.prayerMeeting}`,
           `${c.metrics.visitors}`,
           `${c.metrics.totalAttendance}`,
           `${c.metrics.childrenCount}`,
           `${c.metrics.cadetsCount}`,
-          `${c.metrics.torchbearersCount}`,
+          `${c.metrics.cupbearersCount}`,
           `${c.metrics.candlelightersCount}`,
           `${c.metrics.teachersCount}`,
+          `${c.metrics.bibleClubChildren}`,
+          `${c.metrics.bibleClubTeachers}`,
           `${c.metrics.salvations}`,
           `${c.metrics.holyGhostBaptisms}`,
-          `${c.metrics.healings}`
+          `${c.metrics.healings}`,
+          `"${specProg}"`,
+          `"${forthProg}"`
         ]);
       });
 
@@ -162,18 +177,23 @@ export const AdminDashboard: React.FC = () => {
         `"-"`,
         `"-"`,
         `${z.subtotal.sundaySchool}`,
+        `${z.subtotal.worshipAttendance}`,
         `${z.subtotal.bibleStudy}`,
         `${z.subtotal.prayerMeeting}`,
         `${z.subtotal.visitors}`,
         `${z.subtotal.totalAttendance}`,
         `${z.subtotal.childrenCount}`,
         `${z.subtotal.cadetsCount}`,
-        `${z.subtotal.torchbearersCount}`,
+        `${z.subtotal.cupbearersCount}`,
         `${z.subtotal.candlelightersCount}`,
         `${z.subtotal.teachersCount}`,
+        `${z.subtotal.bibleClubChildren}`,
+        `${z.subtotal.bibleClubTeachers}`,
         `${z.subtotal.salvations}`,
         `${z.subtotal.holyGhostBaptisms}`,
-        `${z.subtotal.healings}`
+        `${z.subtotal.healings}`,
+        `"-"`,
+        `"-"`
       ]);
     });
 
@@ -183,18 +203,23 @@ export const AdminDashboard: React.FC = () => {
       `"All ${collation.totalChurchesCount} Churches"`,
       `"-"`,
       `${collation.grandTotals.sundaySchool}`,
+      `${collation.grandTotals.worshipAttendance}`,
       `${collation.grandTotals.bibleStudy}`,
       `${collation.grandTotals.prayerMeeting}`,
       `${collation.grandTotals.visitors}`,
       `${collation.grandTotals.totalAttendance}`,
       `${collation.grandTotals.childrenCount}`,
       `${collation.grandTotals.cadetsCount}`,
-      `${collation.grandTotals.torchbearersCount}`,
+      `${collation.grandTotals.cupbearersCount}`,
       `${collation.grandTotals.candlelightersCount}`,
       `${collation.grandTotals.teachersCount}`,
+      `${collation.grandTotals.bibleClubChildren}`,
+      `${collation.grandTotals.bibleClubTeachers}`,
       `${collation.grandTotals.salvations}`,
       `${collation.grandTotals.holyGhostBaptisms}`,
-      `${collation.grandTotals.healings}`
+      `${collation.grandTotals.healings}`,
+      `"-"`,
+      `"-"`
     ]);
 
     const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -529,7 +554,7 @@ export const AdminDashboard: React.FC = () => {
             <span className="font-bold">Collation Mode Active: </span>
             {aggregationMode === 'average' ? (
               <span>
-                <strong>Average Headcount:</strong> Demographic group counts (Children, Cadets, Torchbearers, Candlelighters, Teachers) represent weekly averages across submitted Sundays so that recurring church membership is not artificially inflated by 4x. Service attendees and visitors are displayed as true monthly aggregates.
+                <strong>Average Headcount:</strong> Demographic group counts (Children, Cadets, Cupbearers, Candlelighters, Teachers) represent weekly averages across submitted Sundays so that recurring church membership is not artificially inflated by 4x. Service attendees and visitors are displayed as true monthly aggregates.
               </span>
             ) : (
               <span>
@@ -597,8 +622,8 @@ export const AdminDashboard: React.FC = () => {
               <p className="text-2xl font-black text-emerald-700">
                 {collation.grandTotals.teachersCount.toLocaleString()}
               </p>
-              <div className="mt-1 text-[11px] font-bold text-emerald-600">
-                Incl. Mamas
+              <div className="mt-1 text-[11px] font-medium text-slate-500">
+                Active Teachers
               </div>
             </div>
 
@@ -788,31 +813,35 @@ export const AdminDashboard: React.FC = () => {
                   <th className="py-3 px-4 min-w-[220px] sticky left-0 bg-slate-100 z-10">Church / Zone</th>
                   <th className="py-3 px-3 text-center">Weeks</th>
                   <th className="py-3 px-3 text-right">Sun School</th>
+                  <th className="py-3 px-3 text-right">Worship Attd</th>
                   <th className="py-3 px-3 text-right">Bible Study</th>
                   <th className="py-3 px-3 text-right">Prayer Mtg</th>
                   <th className="py-3 px-3 text-right">Visitors</th>
                   <th className="py-3 px-3 text-right font-black text-indigo-700">Total Attd</th>
                   <th className="py-3 px-3 text-right">Children</th>
                   <th className="py-3 px-3 text-right">Cadets</th>
-                  <th className="py-3 px-3 text-right">Torchbearers</th>
+                  <th className="py-3 px-3 text-right">Cupbearers</th>
                   <th className="py-3 px-3 text-right">Candlelighters</th>
-                  <th className="py-3 px-3 text-right font-bold text-emerald-800">Teachers*</th>
+                  <th className="py-3 px-3 text-right font-bold text-emerald-800">Teachers</th>
+                  <th className="py-3 px-3 text-right" title="Bible Club (Children)">BC (Ch)</th>
+                  <th className="py-3 px-3 text-right" title="Bible Club (Teachers)">BC (Tr)</th>
                   <th className="py-3 px-3 text-right">Salvations</th>
                   <th className="py-3 px-3 text-right">HG Baptisms</th>
                   <th className="py-3 px-3 text-right">Healings</th>
+                  <th className="py-3 px-3 text-center">Programmes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={15} className="py-12 text-center text-slate-400 font-medium">
+                    <td colSpan={19} className="py-12 text-center text-slate-400 font-medium">
                       <RefreshCw className="w-6 h-6 animate-spin mx-auto text-indigo-600 mb-2" />
                       Loading collation records...
                     </td>
                   </tr>
                 ) : filteredZones.length === 0 ? (
                   <tr>
-                    <td colSpan={15} className="py-12 text-center text-slate-400 font-medium">
+                    <td colSpan={19} className="py-12 text-center text-slate-400 font-medium">
                       No matching records found for this period.
                     </td>
                   </tr>
@@ -838,51 +867,75 @@ export const AdminDashboard: React.FC = () => {
                               {zone.churches.length} Churches
                             </span>
                           </td>
-                          <td colSpan={14} className="py-3 px-3 text-[11px] font-semibold text-indigo-800 text-right pr-4">
+                          <td colSpan={18} className="py-3 px-3 text-[11px] font-semibold text-indigo-800 text-right pr-4">
                             Click to {isExpanded ? 'collapse' : 'expand'}
                           </td>
                         </tr>
 
                         {/* Church Rows */}
                         {isExpanded &&
-                          zone.churches.map((church) => (
-                            <tr key={church.churchId} className="hover:bg-slate-50/90 transition-colors">
-                              <td className="py-2.5 px-4 sticky left-0 bg-white hover:bg-slate-50/90 z-10 pl-9 font-medium text-slate-900 border-r border-slate-100">
-                                <div>{church.churchName}</div>
-                                {church.lastSubmittedBy && (
-                                  <div className="text-[10px] text-slate-400 font-normal truncate max-w-[200px]">
-                                    By: {church.lastSubmittedBy} {church.lastUpdatedAt && `• ${new Date(church.lastUpdatedAt).toLocaleDateString()}`}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="py-2.5 px-3 text-center">
-                                <span
-                                  className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                    church.metrics.weeksCount > 0
-                                      ? 'bg-emerald-100 text-emerald-800'
-                                      : 'bg-slate-100 text-slate-500'
-                                  }`}
-                                >
-                                  {church.metrics.weeksCount}/5
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-3 text-right text-slate-700">{church.metrics.sundaySchool}</td>
-                              <td className="py-2.5 px-3 text-right text-slate-700">{church.metrics.bibleStudy}</td>
-                              <td className="py-2.5 px-3 text-right text-slate-700">{church.metrics.prayerMeeting}</td>
-                              <td className="py-2.5 px-3 text-right text-amber-700 font-medium">{church.metrics.visitors}</td>
-                              <td className="py-2.5 px-3 text-right font-black text-indigo-700 bg-indigo-50/30">
-                                {church.metrics.totalAttendance}
-                              </td>
-                              <td className="py-2.5 px-3 text-right text-purple-700 font-medium">{church.metrics.childrenCount}</td>
-                              <td className="py-2.5 px-3 text-right text-slate-700">{church.metrics.cadetsCount}</td>
-                              <td className="py-2.5 px-3 text-right text-slate-700">{church.metrics.torchbearersCount}</td>
-                              <td className="py-2.5 px-3 text-right text-slate-700">{church.metrics.candlelightersCount}</td>
-                              <td className="py-2.5 px-3 text-right text-emerald-700 font-bold">{church.metrics.teachersCount}</td>
-                              <td className="py-2.5 px-3 text-right text-rose-700 font-medium">{church.metrics.salvations}</td>
-                              <td className="py-2.5 px-3 text-right text-rose-700 font-medium">{church.metrics.holyGhostBaptisms}</td>
-                              <td className="py-2.5 px-3 text-right text-rose-700 font-medium">{church.metrics.healings}</td>
-                            </tr>
-                          ))}
+                          zone.churches.map((church) => {
+                            const hasProgrammes =
+                              (church.specialProgrammes && church.specialProgrammes.filter(Boolean).length > 0) ||
+                              (church.forthcomingProgrammes && church.forthcomingProgrammes.filter(Boolean).length > 0);
+
+                            return (
+                              <tr key={church.churchId} className="hover:bg-slate-50/90 transition-colors">
+                                <td className="py-2.5 px-4 sticky left-0 bg-white hover:bg-slate-50/90 z-10 pl-9 font-medium text-slate-900 border-r border-slate-100">
+                                  <div>{church.churchName}</div>
+                                  {church.lastSubmittedBy && (
+                                    <div className="text-[10px] text-slate-400 font-normal truncate max-w-[200px]">
+                                      By: {church.lastSubmittedBy} {church.lastUpdatedAt && `• ${new Date(church.lastUpdatedAt).toLocaleDateString()}`}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <span
+                                    className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                      church.metrics.weeksCount > 0
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : 'bg-slate-100 text-slate-500'
+                                    }`}
+                                  >
+                                    {church.metrics.weeksCount}/5
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-right text-slate-700">{church.metrics.sundaySchool}</td>
+                                <td className="py-2.5 px-3 text-right text-slate-700">{church.metrics.worshipAttendance}</td>
+                                <td className="py-2.5 px-3 text-right text-slate-700">{church.metrics.bibleStudy}</td>
+                                <td className="py-2.5 px-3 text-right text-slate-700">{church.metrics.prayerMeeting}</td>
+                                <td className="py-2.5 px-3 text-right text-amber-700 font-medium">{church.metrics.visitors}</td>
+                                <td className="py-2.5 px-3 text-right font-black text-indigo-700 bg-indigo-50/30">
+                                  {church.metrics.totalAttendance}
+                                </td>
+                                <td className="py-2.5 px-3 text-right text-purple-700 font-medium">{church.metrics.childrenCount}</td>
+                                <td className="py-2.5 px-3 text-right text-slate-700">{church.metrics.cadetsCount}</td>
+                                <td className="py-2.5 px-3 text-right text-slate-700">{church.metrics.cupbearersCount}</td>
+                                <td className="py-2.5 px-3 text-right text-slate-700">{church.metrics.candlelightersCount}</td>
+                                <td className="py-2.5 px-3 text-right text-emerald-700 font-bold">{church.metrics.teachersCount}</td>
+                                <td className="py-2.5 px-3 text-right text-teal-700 font-medium">{church.metrics.bibleClubChildren}</td>
+                                <td className="py-2.5 px-3 text-right text-teal-700 font-medium">{church.metrics.bibleClubTeachers}</td>
+                                <td className="py-2.5 px-3 text-right text-rose-700 font-medium">{church.metrics.salvations}</td>
+                                <td className="py-2.5 px-3 text-right text-rose-700 font-medium">{church.metrics.holyGhostBaptisms}</td>
+                                <td className="py-2.5 px-3 text-right text-rose-700 font-medium">{church.metrics.healings}</td>
+                                <td className="py-2.5 px-3 text-center">
+                                  {hasProgrammes ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedChurchProgrammes(church)}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors cursor-pointer"
+                                      title="View Special & Forthcoming Programmes"
+                                    >
+                                      <Sparkles className="w-3 h-3 text-amber-600" />
+                                      <span>Notes</span>
+                                    </button>
+                                  ) : (
+                                    <span className="text-slate-300">-</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
 
                         {/* Zone Subtotal Row */}
                         <tr className="bg-slate-100/90 font-bold text-slate-900 border-b border-slate-300">
@@ -891,6 +944,7 @@ export const AdminDashboard: React.FC = () => {
                           </td>
                           <td className="py-2.5 px-3 text-center text-slate-400">-</td>
                           <td className="py-2.5 px-3 text-right font-black">{zone.subtotal.sundaySchool}</td>
+                          <td className="py-2.5 px-3 text-right font-black">{zone.subtotal.worshipAttendance}</td>
                           <td className="py-2.5 px-3 text-right font-black">{zone.subtotal.bibleStudy}</td>
                           <td className="py-2.5 px-3 text-right font-black">{zone.subtotal.prayerMeeting}</td>
                           <td className="py-2.5 px-3 text-right font-black text-amber-800">{zone.subtotal.visitors}</td>
@@ -899,12 +953,15 @@ export const AdminDashboard: React.FC = () => {
                           </td>
                           <td className="py-2.5 px-3 text-right font-black text-purple-800">{zone.subtotal.childrenCount}</td>
                           <td className="py-2.5 px-3 text-right font-black">{zone.subtotal.cadetsCount}</td>
-                          <td className="py-2.5 px-3 text-right font-black">{zone.subtotal.torchbearersCount}</td>
+                          <td className="py-2.5 px-3 text-right font-black">{zone.subtotal.cupbearersCount}</td>
                           <td className="py-2.5 px-3 text-right font-black">{zone.subtotal.candlelightersCount}</td>
                           <td className="py-2.5 px-3 text-right font-black text-emerald-800">{zone.subtotal.teachersCount}</td>
+                          <td className="py-2.5 px-3 text-right font-black text-teal-800">{zone.subtotal.bibleClubChildren}</td>
+                          <td className="py-2.5 px-3 text-right font-black text-teal-800">{zone.subtotal.bibleClubTeachers}</td>
                           <td className="py-2.5 px-3 text-right font-black text-rose-800">{zone.subtotal.salvations}</td>
                           <td className="py-2.5 px-3 text-right font-black text-rose-800">{zone.subtotal.holyGhostBaptisms}</td>
                           <td className="py-2.5 px-3 text-right font-black text-rose-800">{zone.subtotal.healings}</td>
+                          <td className="py-2.5 px-3 text-center text-slate-400">-</td>
                         </tr>
                       </React.Fragment>
                     );
@@ -921,6 +978,7 @@ export const AdminDashboard: React.FC = () => {
                       {collation.totalChurchesCount} Churches
                     </td>
                     <td className="py-3 px-3 text-right text-emerald-300">{collation.grandTotals.sundaySchool.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-right text-emerald-300">{collation.grandTotals.worshipAttendance.toLocaleString()}</td>
                     <td className="py-3 px-3 text-right text-emerald-300">{collation.grandTotals.bibleStudy.toLocaleString()}</td>
                     <td className="py-3 px-3 text-right text-emerald-300">{collation.grandTotals.prayerMeeting.toLocaleString()}</td>
                     <td className="py-3 px-3 text-right text-amber-300">{collation.grandTotals.visitors.toLocaleString()}</td>
@@ -929,12 +987,15 @@ export const AdminDashboard: React.FC = () => {
                     </td>
                     <td className="py-3 px-3 text-right text-purple-300">{collation.grandTotals.childrenCount.toLocaleString()}</td>
                     <td className="py-3 px-3 text-right text-slate-200">{collation.grandTotals.cadetsCount.toLocaleString()}</td>
-                    <td className="py-3 px-3 text-right text-slate-200">{collation.grandTotals.torchbearersCount.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-right text-slate-200">{collation.grandTotals.cupbearersCount.toLocaleString()}</td>
                     <td className="py-3 px-3 text-right text-slate-200">{collation.grandTotals.candlelightersCount.toLocaleString()}</td>
                     <td className="py-3 px-3 text-right text-emerald-300">{collation.grandTotals.teachersCount.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-right text-teal-300">{collation.grandTotals.bibleClubChildren.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-right text-teal-300">{collation.grandTotals.bibleClubTeachers.toLocaleString()}</td>
                     <td className="py-3 px-3 text-right text-rose-300">{collation.grandTotals.salvations.toLocaleString()}</td>
                     <td className="py-3 px-3 text-right text-rose-300">{collation.grandTotals.holyGhostBaptisms.toLocaleString()}</td>
                     <td className="py-3 px-3 text-right text-rose-300">{collation.grandTotals.healings.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-center text-slate-400">-</td>
                   </tr>
                 )}
               </tbody>
@@ -942,7 +1003,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           <div className="p-3 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
-            <span>* Teachers count explicitly includes Mamas in church leadership.</span>
+            <span>Foursquare Idimu Missionary District • Children's Ministry Collation Portal</span>
             <span>All figures update automatically upon rep submission.</span>
           </div>
         </div>
@@ -1129,6 +1190,81 @@ export const AdminDashboard: React.FC = () => {
                 className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 Close Manager
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Special & Forthcoming Programmes Modal */}
+      {selectedChurchProgrammes && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-amber-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-100 rounded-xl text-amber-700">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    {selectedChurchProgrammes.churchName}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Programmes & Notes • {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedChurchProgrammes(null)}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div>
+                <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                  Special Programme(s)
+                </h4>
+                {selectedChurchProgrammes.specialProgrammes && selectedChurchProgrammes.specialProgrammes.filter(Boolean).length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedChurchProgrammes.specialProgrammes.filter(Boolean).map((prog, idx) => (
+                      <div key={idx} className="p-3 bg-amber-50/60 border border-amber-200/80 rounded-xl text-xs text-amber-950 whitespace-pre-wrap">
+                        {prog}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic">None reported for this period.</p>
+                )}
+              </div>
+
+              <div className="pt-2 border-t border-slate-100">
+                <h4 className="text-xs font-bold text-indigo-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                  Forthcoming Programme(s)
+                </h4>
+                {selectedChurchProgrammes.forthcomingProgrammes && selectedChurchProgrammes.forthcomingProgrammes.filter(Boolean).length > 0 ? (
+                  <div className="space-y-2">
+                    {selectedChurchProgrammes.forthcomingProgrammes.filter(Boolean).map((prog, idx) => (
+                      <div key={idx} className="p-3 bg-indigo-50/60 border border-indigo-200/80 rounded-xl text-xs text-indigo-950 whitespace-pre-wrap">
+                        {prog}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic">None reported for this period.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+              <button
+                onClick={() => setSelectedChurchProgrammes(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>

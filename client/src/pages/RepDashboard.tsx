@@ -4,7 +4,8 @@ import { reportsApi } from '../api';
 import type { WeeklyReport } from '../types';
 import { 
   CheckCircle2, Save, Users, HeartHandshake, Sparkles, 
-  AlertCircle, BarChart3, RefreshCw, WifiOff, UploadCloud, X, ShieldCheck
+  AlertCircle, BarChart3, RefreshCw, WifiOff, UploadCloud, X, ShieldCheck,
+  BookOpen, Calendar
 } from 'lucide-react';
 
 const MONTH_NAMES = [
@@ -40,19 +41,26 @@ export const RepDashboard: React.FC = () => {
   const [formData, setFormData] = useState({
     // Cat 1: Service Attendance
     sundaySchool: 0,
+    worshipAttendance: 0,
     bibleStudy: 0,
     prayerMeeting: 0,
     visitors: 0,
     // Cat 2: Demographics & Workforce
     childrenCount: 0,
     cadetsCount: 0,
-    torchbearersCount: 0,
+    cupbearersCount: 0,
     candlelightersCount: 0,
     teachersCount: 0,
+    // Bible Club Attendance
+    bibleClubTeachers: 0,
+    bibleClubChildren: 0,
     // Cat 3: Spiritual Report
     salvations: 0,
     holyGhostBaptisms: 0,
-    healings: 0
+    healings: 0,
+    // Programmes
+    specialProgramme: '',
+    forthcomingProgramme: ''
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -147,33 +155,43 @@ export const RepDashboard: React.FC = () => {
       if (currentReport) {
         setFormData({
           sundaySchool: currentReport.sunday_school,
+          worshipAttendance: currentReport.worship_attendance || 0,
           bibleStudy: currentReport.bible_study,
           prayerMeeting: currentReport.prayer_meeting,
           visitors: currentReport.visitors,
           childrenCount: currentReport.children_count,
           cadetsCount: currentReport.cadets_count,
-          torchbearersCount: currentReport.torchbearers_count,
+          cupbearersCount: currentReport.cupbearers_count ?? currentReport.torchbearers_count ?? 0,
           candlelightersCount: currentReport.candlelighters_count,
           teachersCount: currentReport.teachers_count,
+          bibleClubTeachers: currentReport.bible_club_teachers || 0,
+          bibleClubChildren: currentReport.bible_club_children || 0,
           salvations: currentReport.salvations,
           holyGhostBaptisms: currentReport.holy_ghost_baptisms,
-          healings: currentReport.healings
+          healings: currentReport.healings,
+          specialProgramme: currentReport.special_programme || '',
+          forthcomingProgramme: currentReport.forthcoming_programme || ''
         });
       } else {
         // Reset to zeros for fresh submission
         setFormData({
           sundaySchool: 0,
+          worshipAttendance: 0,
           bibleStudy: 0,
           prayerMeeting: 0,
           visitors: 0,
           childrenCount: 0,
           cadetsCount: 0,
-          torchbearersCount: 0,
+          cupbearersCount: 0,
           candlelightersCount: 0,
           teachersCount: 0,
+          bibleClubTeachers: 0,
+          bibleClubChildren: 0,
           salvations: 0,
           holyGhostBaptisms: 0,
-          healings: 0
+          healings: 0,
+          specialProgramme: '',
+          forthcomingProgramme: ''
         });
       }
     } catch (err: any) {
@@ -193,37 +211,54 @@ export const RepDashboard: React.FC = () => {
     if (reportForWeek) {
       setFormData({
         sundaySchool: reportForWeek.sunday_school,
+        worshipAttendance: reportForWeek.worship_attendance || 0,
         bibleStudy: reportForWeek.bible_study,
         prayerMeeting: reportForWeek.prayer_meeting,
         visitors: reportForWeek.visitors,
         childrenCount: reportForWeek.children_count,
         cadetsCount: reportForWeek.cadets_count,
-        torchbearersCount: reportForWeek.torchbearers_count,
+        cupbearersCount: reportForWeek.cupbearers_count ?? reportForWeek.torchbearers_count ?? 0,
         candlelightersCount: reportForWeek.candlelighters_count,
         teachersCount: reportForWeek.teachers_count,
+        bibleClubTeachers: reportForWeek.bible_club_teachers || 0,
+        bibleClubChildren: reportForWeek.bible_club_children || 0,
         salvations: reportForWeek.salvations,
         holyGhostBaptisms: reportForWeek.holy_ghost_baptisms,
-        healings: reportForWeek.healings
+        healings: reportForWeek.healings,
+        specialProgramme: reportForWeek.special_programme || '',
+        forthcomingProgramme: reportForWeek.forthcoming_programme || ''
       });
     } else {
       setFormData({
         sundaySchool: 0,
+        worshipAttendance: 0,
         bibleStudy: 0,
         prayerMeeting: 0,
         visitors: 0,
         childrenCount: 0,
         cadetsCount: 0,
-        torchbearersCount: 0,
+        cupbearersCount: 0,
         candlelightersCount: 0,
         teachersCount: 0,
+        bibleClubTeachers: 0,
+        bibleClubChildren: 0,
         salvations: 0,
         holyGhostBaptisms: 0,
-        healings: 0
+        healings: 0,
+        specialProgramme: '',
+        forthcomingProgramme: ''
       });
     }
   }, [selectedWeek, weeksData]);
 
   const handleInputChange = (field: keyof typeof formData, valueStr: string) => {
+    if (field === 'specialProgramme' || field === 'forthcomingProgramme') {
+      setFormData(prev => ({
+        ...prev,
+        [field]: valueStr
+      }));
+      return;
+    }
     const val = valueStr === '' ? 0 : parseInt(valueStr, 10);
     setFormData(prev => ({
       ...prev,
@@ -255,7 +290,8 @@ export const RepDashboard: React.FC = () => {
         year: selectedYear,
         month: selectedMonth,
         weekNumber: selectedWeek,
-        ...formData
+        ...formData,
+        torchbearersCount: formData.cupbearersCount
       });
 
       // Update local state
@@ -309,17 +345,23 @@ export const RepDashboard: React.FC = () => {
         report_month: selectedMonth,
         week_number: selectedWeek,
         sunday_school: formData.sundaySchool,
+        worship_attendance: formData.worshipAttendance,
         bible_study: formData.bibleStudy,
         prayer_meeting: formData.prayerMeeting,
         visitors: formData.visitors,
         children_count: formData.childrenCount,
         cadets_count: formData.cadetsCount,
-        torchbearers_count: formData.torchbearersCount,
+        cupbearers_count: formData.cupbearersCount,
+        torchbearers_count: formData.cupbearersCount,
         candlelighters_count: formData.candlelightersCount,
         teachers_count: formData.teachersCount,
+        bible_club_teachers: formData.bibleClubTeachers,
+        bible_club_children: formData.bibleClubChildren,
         salvations: formData.salvations,
         holy_ghost_baptisms: formData.holyGhostBaptisms,
         healings: formData.healings,
+        special_programme: formData.specialProgramme,
+        forthcoming_programme: formData.forthcomingProgramme,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
@@ -342,8 +384,9 @@ export const RepDashboard: React.FC = () => {
 
   const monthlySummary = {
     submittedCount,
-    totalAttendance: submittedReportsList.reduce((acc, r) => acc + r.sunday_school + r.bible_study + r.prayer_meeting + r.visitors, 0),
+    totalAttendance: submittedReportsList.reduce((acc, r) => acc + r.sunday_school + (r.worship_attendance || 0) + r.bible_study + r.prayer_meeting + r.visitors, 0),
     avgSundaySchool: submittedCount > 0 ? Math.round(submittedReportsList.reduce((acc, r) => acc + r.sunday_school, 0) / submittedCount) : 0,
+    avgWorshipAttendance: submittedCount > 0 ? Math.round(submittedReportsList.reduce((acc, r) => acc + (r.worship_attendance || 0), 0) / submittedCount) : 0,
     totalVisitors: submittedReportsList.reduce((acc, r) => acc + r.visitors, 0),
     avgChildren: submittedCount > 0 ? Math.round(submittedReportsList.reduce((acc, r) => acc + r.children_count, 0) / submittedCount) : 0,
     totalSalvations: submittedReportsList.reduce((acc, r) => acc + r.salvations, 0),
@@ -506,7 +549,7 @@ export const RepDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Sunday School</label>
               <input
@@ -517,6 +560,19 @@ export const RepDashboard: React.FC = () => {
                 placeholder="0"
                 onChange={e => handleInputChange('sundaySchool', e.target.value)}
                 className="w-full text-center text-lg font-black bg-slate-50 border border-slate-200 rounded-2xl py-2.5 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-indigo-700 mb-1">Worship Attd</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                value={formData.worshipAttendance || ''}
+                placeholder="0"
+                onChange={e => handleInputChange('worshipAttendance', e.target.value)}
+                className="w-full text-center text-lg font-black bg-indigo-50/50 border border-indigo-200 rounded-2xl py-2.5 text-indigo-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-600"
               />
             </div>
 
@@ -546,8 +602,8 @@ export const RepDashboard: React.FC = () => {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-indigo-700 mb-1">New Visitors</label>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-xs font-bold text-amber-700 mb-1">New Visitors</label>
               <input
                 type="number"
                 inputMode="numeric"
@@ -555,7 +611,7 @@ export const RepDashboard: React.FC = () => {
                 value={formData.visitors || ''}
                 placeholder="0"
                 onChange={e => handleInputChange('visitors', e.target.value)}
-                className="w-full text-center text-lg font-black bg-indigo-50/60 border border-indigo-200 rounded-2xl py-2.5 text-indigo-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-600"
+                className="w-full text-center text-lg font-black bg-amber-50/60 border border-amber-200 rounded-2xl py-2.5 text-amber-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-600"
               />
             </div>
           </div>
@@ -575,7 +631,7 @@ export const RepDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Total Children</label>
               <input
@@ -603,14 +659,14 @@ export const RepDashboard: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Torchbearers</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Cupbearers</label>
               <input
                 type="number"
                 inputMode="numeric"
                 min="0"
-                value={formData.torchbearersCount || ''}
+                value={formData.cupbearersCount || ''}
                 placeholder="0"
-                onChange={e => handleInputChange('torchbearersCount', e.target.value)}
+                onChange={e => handleInputChange('cupbearersCount', e.target.value)}
                 className="w-full text-center text-lg font-black bg-slate-50 border border-slate-200 rounded-2xl py-2.5 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-600"
               />
             </div>
@@ -628,13 +684,8 @@ export const RepDashboard: React.FC = () => {
               />
             </div>
 
-            <div className="col-span-2 sm:col-span-2">
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-slate-700">Teachers Count</label>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-800">
-                  ★ Include Mamas in teachers count
-                </span>
-              </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">Teachers Count</label>
               <input
                 type="number"
                 inputMode="numeric"
@@ -648,7 +699,50 @@ export const RepDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Category 3: Spiritual Report */}
+        {/* Category 3: Bible Club Attendance */}
+        <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200/80">
+          <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
+            <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center">
+              <BookOpen className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-extrabold text-slate-900">
+                3. Bible Club Attendance
+              </h3>
+              <p className="text-[11px] text-slate-500">Mid-week or Saturday Bible Club outreach</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Bible Club Children</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                value={formData.bibleClubChildren || ''}
+                placeholder="0"
+                onChange={e => handleInputChange('bibleClubChildren', e.target.value)}
+                className="w-full text-center text-lg font-black bg-teal-50/50 border border-teal-200 rounded-2xl py-2.5 text-teal-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Bible Club Teachers</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                value={formData.bibleClubTeachers || ''}
+                placeholder="0"
+                onChange={e => handleInputChange('bibleClubTeachers', e.target.value)}
+                className="w-full text-center text-lg font-black bg-teal-50/50 border border-teal-200 rounded-2xl py-2.5 text-teal-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-600"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Category 4: Spiritual Report */}
         <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200/80">
           <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
             <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
@@ -656,7 +750,7 @@ export const RepDashboard: React.FC = () => {
             </div>
             <div>
               <h3 className="text-sm font-extrabold text-slate-900">
-                3. Spiritual Report
+                4. Spiritual Report
               </h3>
               <p className="text-[11px] text-slate-500">Spiritual milestones & testimonies</p>
             </div>
@@ -699,6 +793,45 @@ export const RepDashboard: React.FC = () => {
                 placeholder="0"
                 onChange={e => handleInputChange('healings', e.target.value)}
                 className="w-full text-center text-lg font-black bg-slate-50 border border-slate-200 rounded-2xl py-2.5 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-600"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Category 5: Special & Forthcoming Programmes */}
+        <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200/80">
+          <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-100">
+            <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-extrabold text-slate-900">
+                5. Special & Forthcoming Programmes
+              </h3>
+              <p className="text-[11px] text-slate-500">Events held this week and upcoming church events</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Special Programme (Events Held)</label>
+              <textarea
+                rows={2}
+                value={formData.specialProgramme}
+                placeholder="e.g. Children Harvest celebration, Easter picnic, or Community Outreach held this week..."
+                onChange={e => handleInputChange('specialProgramme', e.target.value)}
+                className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-2xl p-3 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-600 resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Forthcoming Programme (Upcoming Events)</label>
+              <textarea
+                rows={2}
+                value={formData.forthcomingProgramme}
+                placeholder="e.g. Vacation Bible School next month, Choir practice, or Zonal rally planned..."
+                onChange={e => handleInputChange('forthcomingProgramme', e.target.value)}
+                className="w-full text-xs font-medium bg-slate-50 border border-slate-200 rounded-2xl p-3 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-600 resize-none"
               />
             </div>
           </div>
@@ -788,21 +921,37 @@ export const RepDashboard: React.FC = () => {
               <div className="flex justify-between items-center pb-2 border-b border-slate-200">
                 <span className="font-bold text-slate-700">1. Service Attendance</span>
                 <span className="text-slate-900 font-semibold text-right">
-                  SS: {formData.sundaySchool} | BS: {formData.bibleStudy} | PM: {formData.prayerMeeting} | Visitors: {formData.visitors}
+                  SS: {formData.sundaySchool} | Worship: {formData.worshipAttendance} | BS: {formData.bibleStudy} | PM: {formData.prayerMeeting} | Visitors: {formData.visitors}
                 </span>
               </div>
               <div className="flex justify-between items-center pb-2 border-b border-slate-200">
                 <span className="font-bold text-slate-700">2. Demographics</span>
                 <span className="text-slate-900 font-semibold text-right">
-                  Children: {formData.childrenCount} (Cadets: {formData.cadetsCount}, Torch: {formData.torchbearersCount}, Candle: {formData.candlelightersCount}) | Teachers: {formData.teachersCount}
+                  Children: {formData.childrenCount} (Cadets: {formData.cadetsCount}, Cup: {formData.cupbearersCount}, Candle: {formData.candlelightersCount}) | Teachers: {formData.teachersCount}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-slate-700">3. Spiritual Harvest</span>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                <span className="font-bold text-slate-700">3. Bible Club</span>
+                <span className="text-slate-900 font-semibold text-right">
+                  Children: {formData.bibleClubChildren} | Teachers: {formData.bibleClubTeachers}
+                </span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                <span className="font-bold text-slate-700">4. Spiritual Harvest</span>
                 <span className="text-slate-900 font-semibold text-right">
                   Salvations: {formData.salvations} | Baptisms: {formData.holyGhostBaptisms} | Healings: {formData.healings}
                 </span>
               </div>
+              {(formData.specialProgramme || formData.forthcomingProgramme) && (
+                <div className="pt-1 text-[11px] space-y-1">
+                  {formData.specialProgramme && (
+                    <div><span className="font-bold text-indigo-700">Special:</span> {formData.specialProgramme}</div>
+                  )}
+                  {formData.forthcomingProgramme && (
+                    <div><span className="font-bold text-emerald-700">Forthcoming:</span> {formData.forthcomingProgramme}</div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2.5">

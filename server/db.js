@@ -112,22 +112,48 @@ if (isPostgres) {
       report_month INTEGER NOT NULL,
       week_number INTEGER NOT NULL,
       sunday_school INTEGER DEFAULT 0,
+      worship_attendance INTEGER DEFAULT 0,
       bible_study INTEGER DEFAULT 0,
       prayer_meeting INTEGER DEFAULT 0,
       visitors INTEGER DEFAULT 0,
       children_count INTEGER DEFAULT 0,
       cadets_count INTEGER DEFAULT 0,
+      cupbearers_count INTEGER DEFAULT 0,
       torchbearers_count INTEGER DEFAULT 0,
       candlelighters_count INTEGER DEFAULT 0,
       teachers_count INTEGER DEFAULT 0,
+      bible_club_teachers INTEGER DEFAULT 0,
+      bible_club_children INTEGER DEFAULT 0,
       salvations INTEGER DEFAULT 0,
       holy_ghost_baptisms INTEGER DEFAULT 0,
       healings INTEGER DEFAULT 0,
+      special_programme TEXT DEFAULT '',
+      forthcoming_programme TEXT DEFAULT '',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(church_id, report_year, report_month, week_number)
     );
   `);
+
+  // Migrate existing SQLite columns safely
+  const newCols = [
+    'ALTER TABLE weekly_reports ADD COLUMN worship_attendance INTEGER DEFAULT 0;',
+    'ALTER TABLE weekly_reports ADD COLUMN cupbearers_count INTEGER DEFAULT 0;',
+    'ALTER TABLE weekly_reports ADD COLUMN bible_club_teachers INTEGER DEFAULT 0;',
+    'ALTER TABLE weekly_reports ADD COLUMN bible_club_children INTEGER DEFAULT 0;',
+    'ALTER TABLE weekly_reports ADD COLUMN special_programme TEXT DEFAULT "";',
+    'ALTER TABLE weekly_reports ADD COLUMN forthcoming_programme TEXT DEFAULT "";'
+  ];
+  for (const colSql of newCols) {
+    try {
+      sqliteDb.exec(colSql);
+    } catch {
+      // Column already exists
+    }
+  }
+  try {
+    sqliteDb.exec('UPDATE weekly_reports SET cupbearers_count = torchbearers_count WHERE cupbearers_count = 0 AND torchbearers_count > 0;');
+  } catch {}
 
   db = {
     isPostgres: false,

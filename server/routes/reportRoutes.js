@@ -65,19 +65,27 @@ router.post('/submit', requireAuth, async (req, res) => {
       weekNumber,
       // Category 1
       sundaySchool,
+      worshipAttendance,
       bibleStudy,
       prayerMeeting,
       visitors,
       // Category 2
       childrenCount,
       cadetsCount,
+      cupbearersCount,
       torchbearersCount,
       candlelightersCount,
       teachersCount,
+      // Bible Club
+      bibleClubTeachers,
+      bibleClubChildren,
       // Category 3
       salvations,
       holyGhostBaptisms,
-      healings
+      healings,
+      // Programmes
+      specialProgramme,
+      forthcomingProgramme
     } = req.body;
 
     const repChurchId = req.user.role === 'district_admin' ? (churchId || req.user.church_id) : req.user.church_id;
@@ -99,19 +107,26 @@ router.post('/submit', requireAuth, async (req, res) => {
     }
 
     const cSundaySchool = cleanInt(sundaySchool);
+    const cWorshipAttendance = cleanInt(worshipAttendance);
     const cBibleStudy = cleanInt(bibleStudy);
     const cPrayerMeeting = cleanInt(prayerMeeting);
     const cVisitors = cleanInt(visitors);
 
     const cChildren = cleanInt(childrenCount);
     const cCadets = cleanInt(cadetsCount);
-    const cTorchbearers = cleanInt(torchbearersCount);
+    const cCupbearers = cleanInt(cupbearersCount ?? torchbearersCount);
     const cCandlelighters = cleanInt(candlelightersCount);
     const cTeachers = cleanInt(teachersCount);
+
+    const cBibleClubTeachers = cleanInt(bibleClubTeachers);
+    const cBibleClubChildren = cleanInt(bibleClubChildren);
 
     const cSalvations = cleanInt(salvations);
     const cHolyGhost = cleanInt(holyGhostBaptisms);
     const cHealings = cleanInt(healings);
+
+    const cSpecialProgramme = typeof specialProgramme === 'string' ? specialProgramme.trim() : '';
+    const cForthcomingProgramme = typeof forthcomingProgramme === 'string' ? forthcomingProgramme.trim() : '';
 
     // Check if report already exists for this (church_id, report_year, report_month, week_number)
     const existing = await db.prepare(`
@@ -128,24 +143,32 @@ router.post('/submit', requireAuth, async (req, res) => {
         SET 
           submitted_by = ?,
           sunday_school = ?,
+          worship_attendance = ?,
           bible_study = ?,
           prayer_meeting = ?,
           visitors = ?,
           children_count = ?,
           cadets_count = ?,
+          cupbearers_count = ?,
           torchbearers_count = ?,
           candlelighters_count = ?,
           teachers_count = ?,
+          bible_club_teachers = ?,
+          bible_club_children = ?,
           salvations = ?,
           holy_ghost_baptisms = ?,
           healings = ?,
+          special_programme = ?,
+          forthcoming_programme = ?,
           updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `).run(
         req.user.id,
-        cSundaySchool, cBibleStudy, cPrayerMeeting, cVisitors,
-        cChildren, cCadets, cTorchbearers, cCandlelighters, cTeachers,
+        cSundaySchool, cWorshipAttendance, cBibleStudy, cPrayerMeeting, cVisitors,
+        cChildren, cCadets, cCupbearers, cCupbearers, cCandlelighters, cTeachers,
+        cBibleClubTeachers, cBibleClubChildren,
         cSalvations, cHolyGhost, cHealings,
+        cSpecialProgramme, cForthcomingProgramme,
         reportId
       );
     } else {
@@ -153,15 +176,19 @@ router.post('/submit', requireAuth, async (req, res) => {
       await db.prepare(`
         INSERT INTO weekly_reports (
           id, church_id, zone_id, submitted_by, report_year, report_month, week_number,
-          sunday_school, bible_study, prayer_meeting, visitors,
-          children_count, cadets_count, torchbearers_count, candlelighters_count, teachers_count,
-          salvations, holy_ghost_baptisms, healings
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          sunday_school, worship_attendance, bible_study, prayer_meeting, visitors,
+          children_count, cadets_count, cupbearers_count, torchbearers_count, candlelighters_count, teachers_count,
+          bible_club_teachers, bible_club_children,
+          salvations, holy_ghost_baptisms, healings,
+          special_programme, forthcoming_programme
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         reportId, repChurchId, church.zone_id, req.user.id, reportYear, reportMonth, weekNum,
-        cSundaySchool, cBibleStudy, cPrayerMeeting, cVisitors,
-        cChildren, cCadets, cTorchbearers, cCandlelighters, cTeachers,
-        cSalvations, cHolyGhost, cHealings
+        cSundaySchool, cWorshipAttendance, cBibleStudy, cPrayerMeeting, cVisitors,
+        cChildren, cCadets, cCupbearers, cCupbearers, cCandlelighters, cTeachers,
+        cBibleClubTeachers, cBibleClubChildren,
+        cSalvations, cHolyGhost, cHealings,
+        cSpecialProgramme, cForthcomingProgramme
       );
     }
 
@@ -257,15 +284,19 @@ router.get('/district/collation', requireAuth, async (req, res) => {
         return {
           weeksCount: 0,
           sundaySchool: 0,
+          worshipAttendance: 0,
           bibleStudy: 0,
           prayerMeeting: 0,
           visitors: 0,
           totalAttendance: 0,
           childrenCount: 0,
           cadetsCount: 0,
+          cupbearersCount: 0,
           torchbearersCount: 0,
           candlelightersCount: 0,
           teachersCount: 0,
+          bibleClubTeachers: 0,
+          bibleClubChildren: 0,
           salvations: 0,
           holyGhostBaptisms: 0,
           healings: 0
@@ -275,47 +306,57 @@ router.get('/district/collation', requireAuth, async (req, res) => {
       const count = repsList.length;
 
       // Always cumulative (SUM): Visitors, Salvations, Holy Ghost, Healings
-      const sumVisitors = repsList.reduce((acc, r) => acc + r.visitors, 0);
-      const sumSalvations = repsList.reduce((acc, r) => acc + r.salvations, 0);
-      const sumHolyGhost = repsList.reduce((acc, r) => acc + r.holy_ghost_baptisms, 0);
-      const sumHealings = repsList.reduce((acc, r) => acc + r.healings, 0);
+      const sumVisitors = repsList.reduce((acc, r) => acc + (r.visitors || 0), 0);
+      const sumSalvations = repsList.reduce((acc, r) => acc + (r.salvations || 0), 0);
+      const sumHolyGhost = repsList.reduce((acc, r) => acc + (r.holy_ghost_baptisms || 0), 0);
+      const sumHealings = repsList.reduce((acc, r) => acc + (r.healings || 0), 0);
 
       // Attendance & Recurring Groups: depends on aggregationMode
-      let sundaySchool, bibleStudy, prayerMeeting, children, cadets, torchbearers, candlelighters, teachers;
+      let sundaySchool, worshipAttendance, bibleStudy, prayerMeeting, children, cadets, cupbearers, candlelighters, teachers, bibleClubTeachers, bibleClubChildren;
 
       if (aggregationMode === 'cumulative') {
-        sundaySchool = repsList.reduce((acc, r) => acc + r.sunday_school, 0);
-        bibleStudy = repsList.reduce((acc, r) => acc + r.bible_study, 0);
-        prayerMeeting = repsList.reduce((acc, r) => acc + r.prayer_meeting, 0);
-        children = repsList.reduce((acc, r) => acc + r.children_count, 0);
-        cadets = repsList.reduce((acc, r) => acc + r.cadets_count, 0);
-        torchbearers = repsList.reduce((acc, r) => acc + r.torchbearers_count, 0);
-        candlelighters = repsList.reduce((acc, r) => acc + r.candlelighters_count, 0);
-        teachers = repsList.reduce((acc, r) => acc + r.teachers_count, 0);
+        sundaySchool = repsList.reduce((acc, r) => acc + (r.sunday_school || 0), 0);
+        worshipAttendance = repsList.reduce((acc, r) => acc + (r.worship_attendance || 0), 0);
+        bibleStudy = repsList.reduce((acc, r) => acc + (r.bible_study || 0), 0);
+        prayerMeeting = repsList.reduce((acc, r) => acc + (r.prayer_meeting || 0), 0);
+        children = repsList.reduce((acc, r) => acc + (r.children_count || 0), 0);
+        cadets = repsList.reduce((acc, r) => acc + (r.cadets_count || 0), 0);
+        cupbearers = repsList.reduce((acc, r) => acc + (r.cupbearers_count ?? r.torchbearers_count ?? 0), 0);
+        candlelighters = repsList.reduce((acc, r) => acc + (r.candlelighters_count || 0), 0);
+        teachers = repsList.reduce((acc, r) => acc + (r.teachers_count || 0), 0);
+        bibleClubTeachers = repsList.reduce((acc, r) => acc + (r.bible_club_teachers || 0), 0);
+        bibleClubChildren = repsList.reduce((acc, r) => acc + (r.bible_club_children || 0), 0);
       } else {
         // Average Headcount (default)
-        sundaySchool = Math.round(repsList.reduce((acc, r) => acc + r.sunday_school, 0) / count);
-        bibleStudy = Math.round(repsList.reduce((acc, r) => acc + r.bible_study, 0) / count);
-        prayerMeeting = Math.round(repsList.reduce((acc, r) => acc + r.prayer_meeting, 0) / count);
-        children = Math.round(repsList.reduce((acc, r) => acc + r.children_count, 0) / count);
-        cadets = Math.round(repsList.reduce((acc, r) => acc + r.cadets_count, 0) / count);
-        torchbearers = Math.round(repsList.reduce((acc, r) => acc + r.torchbearers_count, 0) / count);
-        candlelighters = Math.round(repsList.reduce((acc, r) => acc + r.candlelighters_count, 0) / count);
-        teachers = Math.round(repsList.reduce((acc, r) => acc + r.teachers_count, 0) / count);
+        sundaySchool = Math.round(repsList.reduce((acc, r) => acc + (r.sunday_school || 0), 0) / count);
+        worshipAttendance = Math.round(repsList.reduce((acc, r) => acc + (r.worship_attendance || 0), 0) / count);
+        bibleStudy = Math.round(repsList.reduce((acc, r) => acc + (r.bible_study || 0), 0) / count);
+        prayerMeeting = Math.round(repsList.reduce((acc, r) => acc + (r.prayer_meeting || 0), 0) / count);
+        children = Math.round(repsList.reduce((acc, r) => acc + (r.children_count || 0), 0) / count);
+        cadets = Math.round(repsList.reduce((acc, r) => acc + (r.cadets_count || 0), 0) / count);
+        cupbearers = Math.round(repsList.reduce((acc, r) => acc + (r.cupbearers_count ?? r.torchbearers_count ?? 0), 0) / count);
+        candlelighters = Math.round(repsList.reduce((acc, r) => acc + (r.candlelighters_count || 0), 0) / count);
+        teachers = Math.round(repsList.reduce((acc, r) => acc + (r.teachers_count || 0), 0) / count);
+        bibleClubTeachers = Math.round(repsList.reduce((acc, r) => acc + (r.bible_club_teachers || 0), 0) / count);
+        bibleClubChildren = Math.round(repsList.reduce((acc, r) => acc + (r.bible_club_children || 0), 0) / count);
       }
 
       return {
         weeksCount: count,
         sundaySchool,
+        worshipAttendance,
         bibleStudy,
         prayerMeeting,
         visitors: sumVisitors,
-        totalAttendance: sundaySchool + bibleStudy + prayerMeeting + sumVisitors,
+        totalAttendance: sundaySchool + worshipAttendance + bibleStudy + prayerMeeting + sumVisitors,
         childrenCount: children,
         cadetsCount: cadets,
-        torchbearersCount: torchbearers,
+        cupbearersCount: cupbearers,
+        torchbearersCount: cupbearers,
         candlelightersCount: candlelighters,
         teachersCount: teachers,
+        bibleClubTeachers,
+        bibleClubChildren,
         salvations: sumSalvations,
         holyGhostBaptisms: sumHolyGhost,
         healings: sumHealings
@@ -342,12 +383,16 @@ router.get('/district/collation', requireAuth, async (req, res) => {
 
         const aggregated = calculateMetrics(churchReports);
         const latestReport = churchReports.slice().sort((a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0))[0];
+        const specialList = churchReports.map(r => r.special_programme).filter(Boolean);
+        const forthcomingList = churchReports.map(r => r.forthcoming_programme).filter(Boolean);
 
         return {
           churchId: c.id,
           churchName: c.name,
           weeks: weeksObj,
           metrics: aggregated,
+          specialProgrammes: specialList,
+          forthcomingProgrammes: forthcomingList,
           lastSubmittedBy: latestReport ? latestReport.submitter_name : null,
           lastUpdatedAt: latestReport ? (latestReport.updated_at || latestReport.created_at) : null
         };
@@ -356,15 +401,19 @@ router.get('/district/collation', requireAuth, async (req, res) => {
       // Zone Subtotal: Sum of church metrics
       const zoneSubtotal = {
         sundaySchool: churchRows.reduce((a, b) => a + b.metrics.sundaySchool, 0),
+        worshipAttendance: churchRows.reduce((a, b) => a + b.metrics.worshipAttendance, 0),
         bibleStudy: churchRows.reduce((a, b) => a + b.metrics.bibleStudy, 0),
         prayerMeeting: churchRows.reduce((a, b) => a + b.metrics.prayerMeeting, 0),
         visitors: churchRows.reduce((a, b) => a + b.metrics.visitors, 0),
         totalAttendance: churchRows.reduce((a, b) => a + b.metrics.totalAttendance, 0),
         childrenCount: churchRows.reduce((a, b) => a + b.metrics.childrenCount, 0),
         cadetsCount: churchRows.reduce((a, b) => a + b.metrics.cadetsCount, 0),
-        torchbearersCount: churchRows.reduce((a, b) => a + b.metrics.torchbearersCount, 0),
+        cupbearersCount: churchRows.reduce((a, b) => a + b.metrics.cupbearersCount, 0),
+        torchbearersCount: churchRows.reduce((a, b) => a + b.metrics.cupbearersCount, 0),
         candlelightersCount: churchRows.reduce((a, b) => a + b.metrics.candlelightersCount, 0),
         teachersCount: churchRows.reduce((a, b) => a + b.metrics.teachersCount, 0),
+        bibleClubTeachers: churchRows.reduce((a, b) => a + b.metrics.bibleClubTeachers, 0),
+        bibleClubChildren: churchRows.reduce((a, b) => a + b.metrics.bibleClubChildren, 0),
         salvations: churchRows.reduce((a, b) => a + b.metrics.salvations, 0),
         holyGhostBaptisms: churchRows.reduce((a, b) => a + b.metrics.holyGhostBaptisms, 0),
         healings: churchRows.reduce((a, b) => a + b.metrics.healings, 0)
@@ -383,15 +432,19 @@ router.get('/district/collation', requireAuth, async (req, res) => {
       totalRegisteredChurches: totalChurchesCount,
       totalZones: allZones.length,
       sundaySchool: zonesCollation.reduce((a, z) => a + z.subtotal.sundaySchool, 0),
+      worshipAttendance: zonesCollation.reduce((a, z) => a + z.subtotal.worshipAttendance, 0),
       bibleStudy: zonesCollation.reduce((a, z) => a + z.subtotal.bibleStudy, 0),
       prayerMeeting: zonesCollation.reduce((a, z) => a + z.subtotal.prayerMeeting, 0),
       visitors: zonesCollation.reduce((a, z) => a + z.subtotal.visitors, 0),
       totalAttendance: zonesCollation.reduce((a, z) => a + z.subtotal.totalAttendance, 0),
       childrenCount: zonesCollation.reduce((a, z) => a + z.subtotal.childrenCount, 0),
       cadetsCount: zonesCollation.reduce((a, z) => a + z.subtotal.cadetsCount, 0),
-      torchbearersCount: zonesCollation.reduce((a, z) => a + z.subtotal.torchbearersCount, 0),
+      cupbearersCount: zonesCollation.reduce((a, z) => a + z.subtotal.cupbearersCount, 0),
+      torchbearersCount: zonesCollation.reduce((a, z) => a + z.subtotal.cupbearersCount, 0),
       candlelightersCount: zonesCollation.reduce((a, z) => a + z.subtotal.candlelightersCount, 0),
       teachersCount: zonesCollation.reduce((a, z) => a + z.subtotal.teachersCount, 0),
+      bibleClubTeachers: zonesCollation.reduce((a, z) => a + z.subtotal.bibleClubTeachers, 0),
+      bibleClubChildren: zonesCollation.reduce((a, z) => a + z.subtotal.bibleClubChildren, 0),
       salvations: zonesCollation.reduce((a, z) => a + z.subtotal.salvations, 0),
       holyGhostBaptisms: zonesCollation.reduce((a, z) => a + z.subtotal.holyGhostBaptisms, 0),
       healings: zonesCollation.reduce((a, z) => a + z.subtotal.healings, 0)
