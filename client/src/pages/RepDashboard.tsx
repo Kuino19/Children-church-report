@@ -367,7 +367,7 @@ export const RepDashboard: React.FC = () => {
       }
     }));
 
-    setToastMessage(`⚡ Saved offline on phone! Will sync when connection returns.`);
+    setToastMessage(`Saved offline on device! Will sync when connection returns.`);
     setTimeout(() => setToastMessage(null), 4000);
   };
 

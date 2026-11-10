@@ -69,8 +69,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenProfile, onPrint, showPrin
                 IDIMU CHILDREN'S MINISTRY - DATA & SPIRITUAL REPORT PLATFORM
               </h1>
               {isAdmin && (
-                <span className="hidden lg:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-900 text-amber-300 border border-slate-700 shadow-xs">
-                  🛡️ Admin Portal
+                <span className="hidden lg:inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                  Admin Portal
                 </span>
               )}
               {!isOnline && (

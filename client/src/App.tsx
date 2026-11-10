@@ -42,25 +42,25 @@ const AppContent: React.FC = () => {
 
       {/* Admin Mode Switcher Banner (allows coordinator to preview Rep interface) */}
       {isAdmin && (
-        <div className="bg-indigo-950 text-indigo-200 px-4 py-2 text-xs flex items-center justify-between border-b border-indigo-900 no-print">
+        <div className="bg-slate-900 text-slate-300 px-4 py-2 text-xs flex items-center justify-between border-b border-slate-800 no-print">
           <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <ShieldCheck className="w-4 h-4 text-slate-400" />
               <span className="font-semibold text-white">District Coordinator Mode</span>
-              <span className="hidden sm:inline text-indigo-300">
-                — Foursquare Idimu Missionary District Collation Engine
+              <span className="hidden sm:inline text-slate-400">
+                — Foursquare Idimu Missionary District
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-indigo-300">Switch view:</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-slate-400">View:</span>
               <button
                 type="button"
                 onClick={() => setAdminViewMode('admin')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
                   adminViewMode === 'admin'
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-indigo-900/60 text-indigo-300 hover:text-white'
+                    ? 'bg-slate-700 text-white font-semibold'
+                    : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Collation Engine
@@ -68,10 +68,10 @@ const AppContent: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setAdminViewMode('rep')}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
                   adminViewMode === 'rep'
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-indigo-900/60 text-indigo-300 hover:text-white'
+                    ? 'bg-slate-700 text-white font-semibold'
+                    : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Weekly Rep View
