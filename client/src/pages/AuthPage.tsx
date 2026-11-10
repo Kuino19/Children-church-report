@@ -289,7 +289,7 @@ export const AuthPage: React.FC = () => {
                 <div className="font-bold text-slate-800 flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3 text-indigo-600" /> District Admin
                 </div>
-                <div className="text-[10px] text-slate-500">Pastor Emmanuel (Coordinator)</div>
+                <div className="text-[10px] text-slate-500">Taiwo Lawal (District Coordinator)</div>
               </button>
 
               <button

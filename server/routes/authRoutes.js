@@ -265,4 +265,84 @@ router.post('/admin/reset-password', requireAdmin, async (req, res) => {
   }
 });
 
+// Admin: Create Rep Profile directly
+router.post('/admin/create-rep', requireAdmin, async (req, res) => {
+  try {
+    const {
+      fullName,
+      emailOrPhone,
+      password = 'reppassword123',
+      churchId,
+      zoneName,
+      churchName
+    } = req.body;
+
+    if (!fullName || !emailOrPhone) {
+      return res.status(400).json({ error: 'Full name and email/phone are required.' });
+    }
+
+    const cleanEmailOrPhone = emailOrPhone.trim().toLowerCase();
+
+    // Check if user already exists
+    const existing = await db.prepare('SELECT id FROM users WHERE email_or_phone = ?').get(cleanEmailOrPhone);
+    if (existing) {
+      return res.status(400).json({ error: 'An account with this email/phone already exists.' });
+    }
+
+    let targetChurchId = churchId || null;
+    let targetZoneId = null;
+
+    if (targetChurchId) {
+      const churchRecord = await db.prepare('SELECT id, zone_id FROM churches WHERE id = ?').get(targetChurchId);
+      if (!churchRecord) {
+        return res.status(404).json({ error: 'Selected church not found.' });
+      }
+      targetZoneId = churchRecord.zone_id;
+    } else if (zoneName && churchName) {
+      const normalizedZone = normalizeTitleCase(zoneName);
+      const normalizedChurch = normalizeTitleCase(churchName);
+
+      // Find or create zone
+      let zoneRecord = await db.prepare('SELECT id, name FROM zones WHERE LOWER(name) = LOWER(?)').get(normalizedZone);
+      if (!zoneRecord) {
+        targetZoneId = generateUUID();
+        await db.prepare('INSERT INTO zones (id, name) VALUES (?, ?)').run(targetZoneId, normalizedZone);
+      } else {
+        targetZoneId = zoneRecord.id;
+      }
+
+      // Find or create church
+      let churchRecord = await db.prepare('SELECT id, name FROM churches WHERE zone_id = ? AND LOWER(name) = LOWER(?)').get(targetZoneId, normalizedChurch);
+      if (!churchRecord) {
+        targetChurchId = generateUUID();
+        await db.prepare('INSERT INTO churches (id, zone_id, name) VALUES (?, ?, ?)').run(targetChurchId, targetZoneId, normalizedChurch);
+      } else {
+        targetChurchId = churchRecord.id;
+      }
+    } else {
+      return res.status(400).json({ error: 'Please select a church or provide zone and church names.' });
+    }
+
+    const effectivePassword = password && password.length >= 6 ? password : 'reppassword123';
+    const passwordHash = bcrypt.hashSync(effectivePassword, 10);
+    const userId = generateUUID();
+
+    await db.prepare(`
+      INSERT INTO users (id, full_name, email_or_phone, password_hash, role, church_id, zone_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(userId, fullName.trim(), cleanEmailOrPhone, passwordHash, 'church_rep', targetChurchId, targetZoneId);
+
+    const userProfile = await getUserProfile(userId);
+
+    res.status(201).json({
+      message: 'Representative profile created successfully.',
+      user: userProfile,
+      defaultPassword: effectivePassword
+    });
+  } catch (err) {
+    console.error('Admin create rep error:', err);
+    res.status(500).json({ error: 'Failed to create representative profile: ' + err.message });
+  }
+});
+
 module.exports = router;

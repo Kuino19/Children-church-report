@@ -24,7 +24,12 @@ import {
   Check,
   Key,
   MessageCircle,
-  Sparkles
+  Sparkles,
+  UserPlus,
+  PlusCircle,
+  Edit3,
+  FileSpreadsheet,
+  Copy
 } from 'lucide-react';
 import type { CollationResponse, Zone, ChurchRowCollation } from '../types';
 import { reportsApi, metadataApi, authApi } from '../api';
@@ -61,6 +66,63 @@ export const AdminDashboard: React.FC = () => {
     zoneId?: string;
   } | null>(null);
   const [modalSuccessMsg, setModalSuccessMsg] = useState<string | null>(null);
+
+  // Create Rep Profile Modal States
+  const [showCreateRepModal, setShowCreateRepModal] = useState<boolean>(false);
+  const [createRepForm, setCreateRepForm] = useState({
+    fullName: '',
+    emailOrPhone: '',
+    churchId: '',
+    customZone: '',
+    customChurch: '',
+    isCustomChurch: false,
+    password: 'reppassword123'
+  });
+  const [createRepLoading, setCreateRepLoading] = useState(false);
+  const [createRepSuccess, setCreateRepSuccess] = useState<{ message: string; user: any; password: string } | null>(null);
+  const [createRepError, setCreateRepError] = useState<string | null>(null);
+  const [copiedLoginDetails, setCopiedLoginDetails] = useState(false);
+
+  // Enter Church Sunday Report Modal States
+  const [showEnterReportModal, setShowEnterReportModal] = useState<boolean>(false);
+  const [targetChurchForReport, setTargetChurchForReport] = useState<{ id: string; name: string; zoneName?: string } | null>(null);
+  const [adminReportWeek, setAdminReportWeek] = useState<number>(1);
+  const [adminReportData, setAdminReportData] = useState({
+    sundaySchool: 0,
+    worshipAttendance: 0,
+    bibleStudy: 0,
+    prayerMeeting: 0,
+    visitors: 0,
+    childrenCount: 0,
+    cadetsCount: 0,
+    cupbearersCount: 0,
+    candlelightersCount: 0,
+    teachersCount: 0,
+    bibleClubTeachers: 0,
+    bibleClubChildren: 0,
+    salvations: 0,
+    holyGhostBaptisms: 0,
+    healings: 0,
+    specialProgramme: '',
+    forthcomingProgramme: ''
+  });
+  const [adminChurchWeeksMap, setAdminChurchWeeksMap] = useState<{ [week: number]: boolean }>({});
+  const [adminReportLoading, setAdminReportLoading] = useState(false);
+  const [adminReportSaving, setAdminReportSaving] = useState(false);
+  const [adminReportSuccess, setAdminReportSuccess] = useState<string | null>(null);
+  const [adminReportError, setAdminReportError] = useState<string | null>(null);
+
+  // Flat list of all churches
+  const allChurches = useMemo(() => {
+    return zonesList.flatMap((z) =>
+      (z.churches || []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        zoneId: z.id,
+        zoneName: z.name
+      }))
+    );
+  }, [zonesList]);
 
   // Load collation data
   const fetchCollation = async () => {
@@ -102,10 +164,191 @@ export const AdminDashboard: React.FC = () => {
   }, [selectedYear, selectedMonth, selectedWeek, aggregationMode]);
 
   useEffect(() => {
-    if (showManageModal) {
+    loadZonesMetadata();
+  }, []);
+
+  useEffect(() => {
+    if (showManageModal || showCreateRepModal || showEnterReportModal) {
       loadZonesMetadata();
     }
-  }, [showManageModal]);
+  }, [showManageModal, showCreateRepModal, showEnterReportModal]);
+
+  const loadChurchWeekData = async (churchId: string, week: number) => {
+    try {
+      setAdminReportLoading(true);
+      setAdminReportError(null);
+      setAdminReportSuccess(null);
+      const res = await reportsApi.getChurchReports(churchId, selectedYear, selectedMonth);
+      const weeksMap: { [w: number]: boolean } = {};
+      for (let w = 1; w <= 5; w++) {
+        if (res.weeks && res.weeks[w]) {
+          weeksMap[w] = true;
+        }
+      }
+      setAdminChurchWeeksMap(weeksMap);
+
+      const reportForWeek = res.weeks ? res.weeks[week] : null;
+      if (reportForWeek) {
+        setAdminReportData({
+          sundaySchool: reportForWeek.sunday_school || 0,
+          worshipAttendance: reportForWeek.worship_attendance || 0,
+          bibleStudy: reportForWeek.bible_study || 0,
+          prayerMeeting: reportForWeek.prayer_meeting || 0,
+          visitors: reportForWeek.visitors || 0,
+          childrenCount: reportForWeek.children_count || 0,
+          cadetsCount: reportForWeek.cadets_count || 0,
+          cupbearersCount: reportForWeek.cupbearers_count ?? reportForWeek.torchbearers_count ?? 0,
+          candlelightersCount: reportForWeek.candlelighters_count || 0,
+          teachersCount: reportForWeek.teachers_count || 0,
+          bibleClubTeachers: reportForWeek.bible_club_teachers || 0,
+          bibleClubChildren: reportForWeek.bible_club_children || 0,
+          salvations: reportForWeek.salvations || 0,
+          holyGhostBaptisms: reportForWeek.holy_ghost_baptisms || 0,
+          healings: reportForWeek.healings || 0,
+          specialProgramme: reportForWeek.special_programme || '',
+          forthcomingProgramme: reportForWeek.forthcoming_programme || ''
+        });
+      } else {
+        setAdminReportData({
+          sundaySchool: 0,
+          worshipAttendance: 0,
+          bibleStudy: 0,
+          prayerMeeting: 0,
+          visitors: 0,
+          childrenCount: 0,
+          cadetsCount: 0,
+          cupbearersCount: 0,
+          candlelightersCount: 0,
+          teachersCount: 0,
+          bibleClubTeachers: 0,
+          bibleClubChildren: 0,
+          salvations: 0,
+          holyGhostBaptisms: 0,
+          healings: 0,
+          specialProgramme: '',
+          forthcomingProgramme: ''
+        });
+      }
+    } catch (err: any) {
+      setAdminReportError('Failed to load existing church report: ' + err.message);
+    } finally {
+      setAdminReportLoading(false);
+    }
+  };
+
+  const handleOpenEnterReportModal = (churchId?: string, churchName?: string, zoneName?: string) => {
+    setAdminReportSuccess(null);
+    setAdminReportError(null);
+    const initialWeek = selectedWeek === 'all' ? 1 : parseInt(selectedWeek, 10);
+    setAdminReportWeek(initialWeek);
+
+    if (churchId && churchName) {
+      setTargetChurchForReport({ id: churchId, name: churchName, zoneName });
+      loadChurchWeekData(churchId, initialWeek);
+    } else if (allChurches.length > 0) {
+      const firstChurch = allChurches[0];
+      setTargetChurchForReport({ id: firstChurch.id, name: firstChurch.name, zoneName: firstChurch.zoneName });
+      loadChurchWeekData(firstChurch.id, initialWeek);
+    } else {
+      setTargetChurchForReport(null);
+    }
+
+    setShowEnterReportModal(true);
+  };
+
+  const handleChangeTargetChurch = (churchId: string) => {
+    const found = allChurches.find((c) => c.id === churchId);
+    if (found) {
+      setTargetChurchForReport({ id: found.id, name: found.name, zoneName: found.zoneName });
+      loadChurchWeekData(found.id, adminReportWeek);
+    }
+  };
+
+  const handleChangeReportWeek = (week: number) => {
+    setAdminReportWeek(week);
+    if (targetChurchForReport) {
+      loadChurchWeekData(targetChurchForReport.id, week);
+    }
+  };
+
+  const handleSaveAdminChurchReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!targetChurchForReport) return;
+    try {
+      setAdminReportSaving(true);
+      setAdminReportError(null);
+      setAdminReportSuccess(null);
+
+      await reportsApi.submitReport({
+        churchId: targetChurchForReport.id,
+        year: selectedYear,
+        month: selectedMonth,
+        weekNumber: adminReportWeek,
+        ...adminReportData
+      });
+
+      setAdminReportSuccess(`✓ Week ${adminReportWeek} report saved for ${targetChurchForReport.name}!`);
+      setAdminChurchWeeksMap((prev) => ({ ...prev, [adminReportWeek]: true }));
+      fetchCollation();
+    } catch (err: any) {
+      setAdminReportError(err.message || 'Failed to save church report.');
+    } finally {
+      setAdminReportSaving(false);
+    }
+  };
+
+  const handleCreateRep = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateRepLoading(true);
+    setCreateRepError(null);
+    setCreateRepSuccess(null);
+    setCopiedLoginDetails(false);
+
+    try {
+      if (createRepForm.isCustomChurch) {
+        if (!createRepForm.customZone.trim() || !createRepForm.customChurch.trim()) {
+          throw new Error('Please enter both Zone Name and Church Name.');
+        }
+      } else {
+        if (!createRepForm.churchId) {
+          throw new Error('Please select a church from the list.');
+        }
+      }
+
+      const payload = {
+        fullName: createRepForm.fullName.trim(),
+        emailOrPhone: createRepForm.emailOrPhone.trim(),
+        password: createRepForm.password || 'reppassword123',
+        ...(createRepForm.isCustomChurch
+          ? { zoneName: createRepForm.customZone.trim(), churchName: createRepForm.customChurch.trim() }
+          : { churchId: createRepForm.churchId })
+      };
+
+      const res = await authApi.adminCreateRep(payload);
+      setCreateRepSuccess({
+        message: res.message,
+        user: res.user,
+        password: res.defaultPassword || createRepForm.password || 'reppassword123'
+      });
+
+      setCreateRepForm({
+        fullName: '',
+        emailOrPhone: '',
+        churchId: '',
+        customZone: '',
+        customChurch: '',
+        isCustomChurch: false,
+        password: 'reppassword123'
+      });
+
+      loadZonesMetadata();
+      fetchCollation();
+    } catch (err: any) {
+      setCreateRepError(err.message || 'Failed to create representative profile.');
+    } finally {
+      setCreateRepLoading(false);
+    }
+  };
 
   const toggleZone = (zoneId: string) => {
     setExpandedZones((prev) => ({ ...prev, [zoneId]: !prev[zoneId] }));
@@ -391,6 +634,28 @@ export const AdminDashboard: React.FC = () => {
 
             {/* Top Action Buttons */}
             <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                onClick={() => handleOpenEnterReportModal()}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-200 transition-all cursor-pointer"
+                title="Input Sunday service and spiritual figures on behalf of any church"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>+ Enter Church Report</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowCreateRepModal(true);
+                  setCreateRepSuccess(null);
+                  setCreateRepError(null);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-200 transition-all cursor-pointer"
+                title="Create a new login profile for a church representative"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>+ Create Rep Profile</span>
+              </button>
+
               <button
                 onClick={() => setShowManageModal(true)}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 shadow-2xs transition-all cursor-pointer"
@@ -756,6 +1021,15 @@ export const AdminDashboard: React.FC = () => {
                                     <Clock className="w-3 h-3" />
                                     <span>Pending</span>
                                   </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEnterReportModal(ch.churchId, ch.churchName, zone.zoneName)}
+                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                                    title={`Enter report for ${ch.churchName}`}
+                                  >
+                                    <Edit3 className="w-2.5 h-2.5" />
+                                    <span>Enter</span>
+                                  </button>
                                   <a
                                     href={`https://wa.me/?text=${encodeURIComponent(`Calvary greetings! Gentle reminder from Foursquare Idimu Missionary District Children's Ministry. Kindly submit the weekly Sunday report for *${ch.churchName}* (${zone.zoneName}) for ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear} on the portal:\nhttps://children-church-report.vercel.app`)}`}
                                     target="_blank"
@@ -882,12 +1156,25 @@ export const AdminDashboard: React.FC = () => {
                             return (
                               <tr key={church.churchId} className="hover:bg-slate-50/90 transition-colors">
                                 <td className="py-2.5 px-4 sticky left-0 bg-white hover:bg-slate-50/90 z-10 pl-9 font-medium text-slate-900 border-r border-slate-100">
-                                  <div>{church.churchName}</div>
-                                  {church.lastSubmittedBy && (
-                                    <div className="text-[10px] text-slate-400 font-normal truncate max-w-[200px]">
-                                      By: {church.lastSubmittedBy} {church.lastUpdatedAt && `• ${new Date(church.lastUpdatedAt).toLocaleDateString()}`}
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div>
+                                      <div className="font-semibold text-slate-900">{church.churchName}</div>
+                                      {church.lastSubmittedBy && (
+                                        <div className="text-[10px] text-slate-400 font-normal truncate max-w-[200px]">
+                                          By: {church.lastSubmittedBy} {church.lastUpdatedAt && `• ${new Date(church.lastUpdatedAt).toLocaleDateString()}`}
+                                        </div>
+                                      )}
                                     </div>
-                                  )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEnterReportModal(church.churchId, church.churchName, zone.zoneName)}
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer shrink-0"
+                                      title={`Enter or edit report for ${church.churchName}`}
+                                    >
+                                      <Edit3 className="w-3 h-3 text-emerald-600" />
+                                      <span>Data</span>
+                                    </button>
+                                  </div>
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
                                   <span
@@ -1266,6 +1553,601 @@ export const AdminDashboard: React.FC = () => {
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Church Rep Profile Modal */}
+      {showCreateRepModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-indigo-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-100 rounded-xl text-indigo-700">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Create Church Rep Profile
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Set up credentials for a local church teacher or coordinator.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCreateRepModal(false)}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRep} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              {createRepError && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{createRepError}</span>
+                </div>
+              )}
+
+              {createRepSuccess && (
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs space-y-2.5">
+                  <div className="font-bold text-emerald-900 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Representative Account Created Successfully!</span>
+                  </div>
+                  <div className="p-3 bg-white/80 rounded-xl border border-emerald-100 text-slate-700 space-y-1">
+                    <div><strong>Name:</strong> {createRepSuccess.user.full_name}</div>
+                    <div><strong>Church:</strong> {createRepSuccess.user.church_name} ({createRepSuccess.user.zone_name})</div>
+                    <div><strong>Login Email/Phone:</strong> <span className="font-mono text-indigo-700 font-bold">{createRepSuccess.user.email_or_phone}</span></div>
+                    <div><strong>Password:</strong> <span className="font-mono text-emerald-700 font-bold">{createRepSuccess.password}</span></div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const text = `Calvary greetings! Here are your login credentials for the Foursquare Idimu Children's Ministry Report Portal:\n\n👤 Church: ${createRepSuccess.user.church_name} (${createRepSuccess.user.zone_name})\n🔑 Username: ${createRepSuccess.user.email_or_phone}\n🔒 Password: ${createRepSuccess.password}\n\n🌐 Portal Link: https://children-church-report.vercel.app`;
+                        navigator.clipboard.writeText(text);
+                        setCopiedLoginDetails(true);
+                        setTimeout(() => setCopiedLoginDetails(false), 2500);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors cursor-pointer"
+                    >
+                      {copiedLoginDetails ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedLoginDetails ? 'Copied to Clipboard!' : 'Copy Login Details'}</span>
+                    </button>
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(`Calvary greetings! Here are your login credentials for the Foursquare Idimu Children's Ministry Report Portal:\n\n👤 Church: ${createRepSuccess.user.church_name} (${createRepSuccess.user.zone_name})\n🔑 Username: ${createRepSuccess.user.email_or_phone}\n🔒 Password: ${createRepSuccess.password}\n\n🌐 Portal Link: https://children-church-report.vercel.app`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>Send on WhatsApp</span>
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Representative Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Sister Faith Adeyemi"
+                  value={createRepForm.fullName}
+                  onChange={(e) => setCreateRepForm({ ...createRepForm, fullName: e.target.value })}
+                  className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Email or Phone Number * (Used for Login)
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 08012345678 or faith@church.org"
+                  value={createRepForm.emailOrPhone}
+                  onChange={(e) => setCreateRepForm({ ...createRepForm, emailOrPhone: e.target.value })}
+                  className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    Assigned Church *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setCreateRepForm({ ...createRepForm, isCustomChurch: !createRepForm.isCustomChurch })}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                  >
+                    {createRepForm.isCustomChurch ? '← Select Existing Church' : '+ Enter New Zone & Church'}
+                  </button>
+                </div>
+
+                {!createRepForm.isCustomChurch ? (
+                  <select
+                    value={createRepForm.churchId}
+                    onChange={(e) => setCreateRepForm({ ...createRepForm, churchId: e.target.value })}
+                    className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                  >
+                    <option value="">-- Choose Church Assembly --</option>
+                    {zonesList.map((z) => (
+                      <optgroup key={z.id} label={`${z.name} Zone`}>
+                        {(z.churches || []).map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({z.name} Zone)
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="space-y-2 p-3 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Zone Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Idimu"
+                        value={createRepForm.customZone}
+                        onChange={(e) => setCreateRepForm({ ...createRepForm, customZone: e.target.value })}
+                        className="w-full text-xs px-3 py-1.5 bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Church Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Grace Sanctuary"
+                        value={createRepForm.customChurch}
+                        onChange={(e) => setCreateRepForm({ ...createRepForm, customChurch: e.target.value })}
+                        className="w-full text-xs px-3 py-1.5 bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Default Login Password
+                </label>
+                <input
+                  type="text"
+                  value={createRepForm.password}
+                  onChange={(e) => setCreateRepForm({ ...createRepForm, password: e.target.value })}
+                  placeholder="reppassword123"
+                  className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500 font-mono"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Default is reppassword123. The rep can change this after logging in.</p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateRepModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  type="submit"
+                  disabled={createRepLoading}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>{createRepLoading ? 'Creating...' : 'Create Representative Profile'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Enter / Edit Church Sunday Report Modal */}
+      {showEnterReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-emerald-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-100 rounded-xl text-emerald-700">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Enter Church Sunday Report
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Submit or update attendance and spiritual figures on behalf of a local assembly.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEnterReportModal(false)}
+                className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5">
+              {adminReportError && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{adminReportError}</span>
+                </div>
+              )}
+
+              {adminReportSuccess && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{adminReportSuccess}</span>
+                </div>
+              )}
+
+              {/* Church Selector & Period Header */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                      Select Church Assembly
+                    </label>
+                    <select
+                      value={targetChurchForReport?.id || ''}
+                      onChange={(e) => handleChangeTargetChurch(e.target.value)}
+                      className="w-full text-xs font-bold px-3 py-2 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+                    >
+                      {zonesList.map((z) => (
+                        <optgroup key={z.id} label={`${z.name} Zone`}>
+                          {(z.churches || []).map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} ({z.name} Zone)
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                      Report Period
+                    </label>
+                    <div className="text-xs font-bold text-slate-800 px-3 py-2 bg-white border border-slate-300 rounded-xl">
+                      {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sunday Week Selector Tabs */}
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Select Sunday Week
+                  </label>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {[1, 2, 3, 4, 5].map((w) => {
+                      const isSaved = adminChurchWeeksMap[w];
+                      const isSelected = adminReportWeek === w;
+
+                      return (
+                        <button
+                          key={w}
+                          type="button"
+                          onClick={() => handleChangeReportWeek(w)}
+                          className={`py-2 px-1 rounded-xl text-center text-xs font-bold transition-all border cursor-pointer ${
+                            isSelected
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                              : isSaved
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div>Week {w}</div>
+                          <div className={`text-[10px] font-normal ${isSelected ? 'text-emerald-100' : isSaved ? 'text-emerald-600 font-bold' : 'text-slate-400'}`}>
+                            {isSaved ? '✓ Saved' : 'Empty'}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {adminReportLoading ? (
+                <div className="py-12 text-center text-slate-400">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto text-emerald-600 mb-2" />
+                  Loading church figures...
+                </div>
+              ) : (
+                <form onSubmit={handleSaveAdminChurchReport} className="space-y-4">
+                  {/* Category 1: Service Attendance */}
+                  <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3">
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-800">
+                        1. Service Attendance & Visitors
+                      </h4>
+                      <span className="text-[11px] font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
+                        Total: {adminReportData.sundaySchool + adminReportData.worshipAttendance + adminReportData.bibleStudy + adminReportData.prayerMeeting + adminReportData.visitors}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          Sunday School
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adminReportData.sundaySchool}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, sundaySchool: parseInt(e.target.value, 10) || 0 })}
+                          className="w-full text-xs font-bold px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          Worship Attendance
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adminReportData.worshipAttendance}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, worshipAttendance: parseInt(e.target.value, 10) || 0 })}
+                          className="w-full text-xs font-bold px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          Bible Study
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adminReportData.bibleStudy}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, bibleStudy: parseInt(e.target.value, 10) || 0 })}
+                          className="w-full text-xs font-bold px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          Prayer Meeting
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adminReportData.prayerMeeting}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, prayerMeeting: parseInt(e.target.value, 10) || 0 })}
+                          className="w-full text-xs font-bold px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          First-time Visitors
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adminReportData.visitors}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, visitors: parseInt(e.target.value, 10) || 0 })}
+                          className="w-full text-xs font-bold px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Category 2: Demographics & Workforce */}
+                  <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-800 border-b pb-2">
+                      2. Demographics & Workforce
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          Total Children Present
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adminReportData.childrenCount}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, childrenCount: parseInt(e.target.value, 10) || 0 })}
+                          className="w-full text-xs font-bold px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 text-purple-700"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          Cadets
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adminReportData.cadetsCount}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, cadetsCount: parseInt(e.target.value, 10) || 0 })}
+                          className="w-full text-xs font-bold px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          Cupbearers
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adminReportData.cupbearersCount}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, cupbearersCount: parseInt(e.target.value, 10) || 0 })}
+                          className="w-full text-xs font-bold px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          Candlelighters
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adminReportData.candlelightersCount}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, candlelightersCount: parseInt(e.target.value, 10) || 0 })}
+                          className="w-full text-xs font-bold px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                          Teachers Present
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adminReportData.teachersCount}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, teachersCount: parseInt(e.target.value, 10) || 0 })}
+                          className="w-full text-xs font-bold px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 text-emerald-700"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Category 3: Bible Club Attendance */}
+                  <div className="p-4 rounded-2xl border border-teal-200 bg-teal-50/30 space-y-3">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-teal-900 border-b border-teal-200 pb-2">
+                      3. Bible Club Attendance
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-teal-900 mb-1">
+                          Bible Club (Children)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adminReportData.bibleClubChildren}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, bibleClubChildren: parseInt(e.target.value, 10) || 0 })}
+                          className="w-full text-xs font-bold px-3 py-1.5 bg-white border border-teal-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-teal-900 mb-1">
+                          Bible Club (Teachers)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adminReportData.bibleClubTeachers}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, bibleClubTeachers: parseInt(e.target.value, 10) || 0 })}
+                          className="w-full text-xs font-bold px-3 py-1.5 bg-white border border-teal-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Category 4: Spiritual Report */}
+                  <div className="p-4 rounded-2xl border border-rose-200 bg-rose-50/30 space-y-3">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-rose-900 border-b border-rose-200 pb-2">
+                      4. Spiritual Harvest
+                    </h4>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-rose-900 mb-1">
+                          Salvations
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adminReportData.salvations}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, salvations: parseInt(e.target.value, 10) || 0 })}
+                          className="w-full text-xs font-bold px-3 py-1.5 bg-white border border-rose-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-rose-500 text-rose-700"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-rose-900 mb-1">
+                          HG Baptisms
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adminReportData.holyGhostBaptisms}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, holyGhostBaptisms: parseInt(e.target.value, 10) || 0 })}
+                          className="w-full text-xs font-bold px-3 py-1.5 bg-white border border-rose-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-rose-500 text-rose-700"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-rose-900 mb-1">
+                          Divine Healings
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={adminReportData.healings}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, healings: parseInt(e.target.value, 10) || 0 })}
+                          className="w-full text-xs font-bold px-3 py-1.5 bg-white border border-rose-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-rose-500 text-rose-700"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Category 5: Special & Forthcoming Programmes */}
+                  <div className="p-4 rounded-2xl border border-amber-200 bg-amber-50/30 space-y-3">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-amber-900 border-b border-amber-200 pb-2">
+                      5. Special & Forthcoming Programmes
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-amber-900 mb-1">
+                          Special Programme(s) Held
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="e.g. Children's Day Rally, Easter Bible Recitation..."
+                          value={adminReportData.specialProgramme}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, specialProgramme: e.target.value })}
+                          className="w-full text-xs p-2.5 bg-white border border-amber-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-amber-900 mb-1">
+                          Forthcoming Programme(s)
+                        </label>
+                        <textarea
+                          rows={2}
+                          placeholder="e.g. Next month Camp meeting, Choir rehearsal..."
+                          value={adminReportData.forthcomingProgramme}
+                          onChange={(e) => setAdminReportData({ ...adminReportData, forthcomingProgramme: e.target.value })}
+                          className="w-full text-xs p-2.5 bg-white border border-amber-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowEnterReportModal(false)}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={adminReportSaving}
+                      className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-200 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{adminReportSaving ? 'Saving...' : `Save Week ${adminReportWeek} Report`}</span>
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         </div>

@@ -75,6 +75,19 @@ export const authApi = {
     apiRequest<{ message: string; emailOrPhone: string; newPassword: string }>('/auth/admin/reset-password', {
       method: 'POST',
       body: JSON.stringify(payload)
+    }),
+
+  adminCreateRep: (payload: {
+    fullName: string;
+    emailOrPhone: string;
+    password?: string;
+    churchId?: string;
+    zoneName?: string;
+    churchName?: string;
+  }) =>
+    apiRequest<{ message: string; user: User; defaultPassword?: string }>('/auth/admin/create-rep', {
+      method: 'POST',
+      body: JSON.stringify(payload)
     })
 };
 
