@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Church, ShieldCheck, UserPlus, LogIn, Sparkles, AlertCircle, ArrowRight } from 'lucide-react';
+import { UserPlus, LogIn, AlertCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { SmartCombobox } from '../components/SmartCombobox';
 import { metadataApi } from '../api';
@@ -84,19 +84,6 @@ export const AuthPage: React.FC = () => {
   const churchOptions = matchedZone 
     ? matchedZone.churches.map(c => c.name)
     : existingZones.flatMap(z => z.churches.map(c => c.name));
-
-  // Quick Demo Logins
-  const fillDemoAdmin = () => {
-    setEmailOrPhone('admin@district.church');
-    setPassword('adminpassword123');
-    setTab('login');
-  };
-
-  const fillDemoRep = () => {
-    setEmailOrPhone('rep@idimuzhq.church');
-    setPassword('reppassword123');
-    setTab('login');
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/30 to-slate-100 flex flex-col justify-center items-center px-4 py-8">
@@ -273,37 +260,6 @@ export const AuthPage: React.FC = () => {
               </button>
             </form>
           )}
-
-          {/* Quick Demo Logins Section */}
-          <div className="mt-6 pt-5 border-t border-slate-200">
-            <div className="flex items-center gap-1.5 mb-2 text-slate-400 text-[11px] font-semibold uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>Instant One-Click Demo Access</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={fillDemoAdmin}
-                className="px-3 py-2 text-left rounded-xl bg-slate-50 hover:bg-indigo-50/70 border border-slate-200 text-xs transition-colors cursor-pointer"
-              >
-                <div className="font-bold text-slate-800 flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-indigo-600" /> District Admin
-                </div>
-                <div className="text-[10px] text-slate-500">Taiwo Lawal (District Coordinator)</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={fillDemoRep}
-                className="px-3 py-2 text-left rounded-xl bg-slate-50 hover:bg-indigo-50/70 border border-slate-200 text-xs transition-colors cursor-pointer"
-              >
-                <div className="font-bold text-slate-800 flex items-center gap-1">
-                  <Church className="w-3 h-3 text-emerald-600" /> Church Rep
-                </div>
-                <div className="text-[10px] text-slate-500">Idimu ZHQ (Idimu Zone)</div>
-              </button>
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-[11px] text-slate-400 mt-4 uppercase">
