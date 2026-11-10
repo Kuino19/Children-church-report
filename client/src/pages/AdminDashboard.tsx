@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Calendar,
-  Filter,
   Download,
   Printer,
   ChevronDown,
@@ -29,8 +27,11 @@ import {
   PlusCircle,
   Edit3,
   FileSpreadsheet,
-  Copy
+  Copy,
+  Menu,
+  ShieldCheck
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import type { CollationResponse, Zone, ChurchRowCollation } from '../types';
 import { reportsApi, metadataApi, authApi } from '../api';
 
@@ -40,7 +41,9 @@ const MONTH_NAMES = [
 ];
 
 export const AdminDashboard: React.FC = () => {
+  const { user } = useAuth();
   const currentDate = new Date();
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getMonth() + 1);
   const [selectedWeek, setSelectedWeek] = useState<string>('all');
@@ -606,182 +609,272 @@ export const AdminDashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 pb-16">
-      {/* Top Header / Title Section */}
-      <div className="bg-white border-b border-slate-200 no-print">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-xs border border-slate-200 bg-white shrink-0">
-                <img
-                  src="/foursquare-logo.jpg"
-                  alt="Foursquare Logo"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div>
-                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60 mb-1">
-                  <span>Foursquare Idimu Missionary District</span>
-                </div>
-                <h1 className="text-base sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight uppercase">
-                  IDIMU CHILDREN'S MINISTRY - DATA & SPIRITUAL REPORT PLATFORM
-                </h1>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Foursquare Idimu Missionary District — Real-time collation for all Zones and Churches.
-                </p>
-              </div>
+    <div className="min-h-screen bg-slate-100/70 text-slate-800 flex flex-col md:flex-row pb-16">
+      {/* Mobile Top Bar (Visible only on small screens) */}
+      <div className="md:hidden bg-slate-900 text-white p-4 flex items-center justify-between border-b border-slate-800 no-print">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-amber-400/20 border border-amber-400/30 flex items-center justify-center font-black text-amber-300 text-xs">
+            TL
+          </div>
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-wider text-amber-400">
+              District Admin Portal
+            </div>
+            <div className="text-xs font-bold text-white">Taiwo Lawal (Coordinator)</div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 cursor-pointer"
+        >
+          <Menu className="w-4 h-4 text-amber-400" />
+          <span>{isSidebarOpen ? 'Hide Menu' : 'Admin Menu'}</span>
+        </button>
+      </div>
+
+      {/* Admin Left Sidebar Navigation */}
+      <aside
+        className={`${
+          isSidebarOpen ? 'block' : 'hidden'
+        } md:block w-full md:w-72 lg:w-80 shrink-0 bg-slate-900 border-r border-slate-800 text-slate-200 p-5 space-y-6 no-print`}
+      >
+        {/* District Coordinator Identity Card */}
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-800/90 to-indigo-950/80 border border-indigo-500/30 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-600/30 border border-indigo-400/40 flex items-center justify-center font-black text-amber-400 text-lg shadow-inner shrink-0">
+              TL
+            </div>
+            <div className="min-w-0">
+              <span className="inline-block text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                District Coordinator
+              </span>
+              <h2 className="text-sm font-black text-white mt-1 truncate">Taiwo Lawal</h2>
+              <p className="text-[11px] text-indigo-200/80 font-medium truncate">
+                {user?.email_or_phone || 'admin@district.church'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 1: Core Action Center */}
+        <div className="space-y-2">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
+            Command Actions
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              handleOpenEnterReportModal();
+              setIsSidebarOpen(false);
+            }}
+            className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-950/40 transition-all cursor-pointer"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>+ Enter Church Report</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowCreateRepModal(true);
+              setCreateRepSuccess(null);
+              setCreateRepError(null);
+              setIsSidebarOpen(false);
+            }}
+            className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-950/40 transition-all cursor-pointer"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>+ Create Rep Profile</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowManageModal(true);
+              setIsSidebarOpen(false);
+            }}
+            className="w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 transition-all cursor-pointer"
+          >
+            <Settings className="w-4 h-4 text-slate-400" />
+            <span>Manage Names & Zones</span>
+          </button>
+        </div>
+
+        {/* Section 2: Collation Timeframe & Scope */}
+        <div className="space-y-3 pt-4 border-t border-slate-800">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 flex items-center justify-between">
+            <span>Collation Period</span>
+            <button
+              type="button"
+              onClick={fetchCollation}
+              disabled={loading}
+              className="p-1 rounded text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
+              title="Refresh Collation Data"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-amber-400' : ''}`} />
+            </button>
+          </div>
+
+          <div className="space-y-2.5">
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                Month:
+              </label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
+                className="w-full text-xs font-bold px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+              >
+                {MONTH_NAMES.map((m, idx) => (
+                  <option key={m} value={idx + 1}>
+                    {m}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {/* Top Action Buttons */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              <button
-                onClick={() => handleOpenEnterReportModal()}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-200 transition-all cursor-pointer"
-                title="Input Sunday service and spiritual figures on behalf of any church"
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                Year:
+              </label>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+                className="w-full text-xs font-bold px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500 cursor-pointer"
               >
-                <PlusCircle className="w-4 h-4" />
-                <span>+ Enter Church Report</span>
-              </button>
+                {availableYears.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              <button
-                onClick={() => {
-                  setShowCreateRepModal(true);
-                  setCreateRepSuccess(null);
-                  setCreateRepError(null);
-                }}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-200 transition-all cursor-pointer"
-                title="Create a new login profile for a church representative"
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                Sunday Scope:
+              </label>
+              <select
+                value={selectedWeek}
+                onChange={(e) => setSelectedWeek(e.target.value)}
+                className="w-full text-xs font-bold px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500 cursor-pointer"
               >
-                <UserPlus className="w-4 h-4" />
-                <span>+ Create Rep Profile</span>
-              </button>
+                <option value="all">Full Month Collation</option>
+                <option value="1">1st Sunday Only</option>
+                <option value="2">2nd Sunday Only</option>
+                <option value="3">3rd Sunday Only</option>
+                <option value="4">4th Sunday Only</option>
+                <option value="5">5th Sunday Only</option>
+              </select>
+            </div>
+          </div>
+        </div>
 
-              <button
-                onClick={() => setShowManageModal(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 shadow-2xs transition-all cursor-pointer"
-              >
-                <Settings className="w-4 h-4 text-slate-500" />
-                <span>Manage Names & Zones</span>
-              </button>
+        {/* Section 3: Calculation Engine Mode */}
+        <div className="space-y-2 pt-4 border-t border-slate-800">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
+            Calculation Engine
+          </div>
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-800/80 rounded-xl border border-slate-700">
+            <button
+              type="button"
+              onClick={() => setAggregationMode('average')}
+              className={`py-1.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                aggregationMode === 'average'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Average
+            </button>
+            <button
+              type="button"
+              onClick={() => setAggregationMode('cumulative')}
+              className={`py-1.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                aggregationMode === 'cumulative'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Cumulative
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-400 px-1 leading-relaxed">
+            {aggregationMode === 'average'
+              ? 'Averages weekly workforce to prevent recurring member multiplication.'
+              : 'Directly sums all attendance counts across submitted weeks.'}
+          </p>
+        </div>
 
-              <button
-                onClick={exportToCSV}
-                disabled={!collation || loading}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
-              >
-                <Download className="w-4 h-4 text-emerald-600" />
-                <span>Export CSV</span>
-              </button>
+        {/* Section 4: Export & Print */}
+        <div className="space-y-2 pt-4 border-t border-slate-800">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
+            Reports & Output
+          </div>
+          <button
+            type="button"
+            onClick={exportToCSV}
+            disabled={!collation || loading}
+            className="w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 transition-all cursor-pointer disabled:opacity-50"
+          >
+            <Download className="w-4 h-4 text-emerald-400" />
+            <span>Export CSV Spreadsheet</span>
+          </button>
 
-              <button
-                onClick={() => window.print()}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-200 transition-all cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Print / PDF Report</span>
-              </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 transition-all cursor-pointer"
+          >
+            <Printer className="w-4 h-4 text-indigo-400" />
+            <span>Print / PDF Document</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 space-y-6">
+        {/* Identifiable Admin Command Banner */}
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 sm:p-6 text-white shadow-xl border border-indigo-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4 no-print">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-amber-400/10 border border-amber-400/30 flex items-center justify-center shrink-0 shadow-inner">
+              <ShieldCheck className="w-7 h-7 sm:w-8 sm:h-8 text-amber-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-slate-950">
+                  DISTRICT ADMIN PORTAL
+                </span>
+                <span className="text-xs text-indigo-300 font-semibold hidden sm:inline">
+                  Foursquare Idimu Missionary District
+                </span>
+              </div>
+              <h1 className="text-lg sm:text-2xl font-black tracking-tight text-white mt-1">
+                Central Collation & Ministry Analytics
+              </h1>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Coordinating Officer: <strong className="text-amber-300">Sister Taiwo Lawal</strong> • {collation?.totalChurchesCount || 8} Assemblies in District
+              </p>
             </div>
           </div>
 
-          {/* Filter Bar Controls */}
-          <div className="mt-6 pt-5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Year Dropdown */}
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300/80 rounded-xl px-3 py-1.5 shadow-2xs">
-                <Calendar className="w-4 h-4 text-slate-400" />
-                <span className="text-xs font-medium text-slate-500">Year:</span>
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
-                  className="bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden cursor-pointer"
-                >
-                  {availableYears.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Month Dropdown */}
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300/80 rounded-xl px-3 py-1.5 shadow-2xs">
-                <Calendar className="w-4 h-4 text-slate-400" />
-                <span className="text-xs font-medium text-slate-500">Month:</span>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
-                  className="bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden cursor-pointer"
-                >
-                  {MONTH_NAMES.map((m, idx) => (
-                    <option key={m} value={idx + 1}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Week Filter */}
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300/80 rounded-xl px-3 py-1.5 shadow-2xs">
-                <Filter className="w-4 h-4 text-slate-400" />
-                <span className="text-xs font-medium text-slate-500">Scope:</span>
-                <select
-                  value={selectedWeek}
-                  onChange={(e) => setSelectedWeek(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden cursor-pointer"
-                >
-                  <option value="all">Full Month Collation</option>
-                  <option value="1">1st Sunday Only</option>
-                  <option value="2">2nd Sunday Only</option>
-                  <option value="3">3rd Sunday Only</option>
-                  <option value="4">4th Sunday Only</option>
-                  <option value="5">5th Sunday Only</option>
-                </select>
-              </div>
-
-              {/* Aggregation Mode (Sum vs Average) */}
-              <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setAggregationMode('average')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    aggregationMode === 'average'
-                      ? 'bg-white text-indigo-700 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                  title="Averages recurring headcounts across submitted weeks to avoid artificial multiplication"
-                >
-                  Average Headcount
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAggregationMode('cumulative')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    aggregationMode === 'cumulative'
-                      ? 'bg-white text-indigo-700 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                  title="Direct sum across all weeks"
-                >
-                  Cumulative (Sum)
-                </button>
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <div className="px-3.5 py-2 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10 text-xs">
+              <div className="text-[10px] uppercase font-bold text-indigo-300">Active Scope</div>
+              <div className="font-extrabold text-white">
+                {MONTH_NAMES[selectedMonth - 1]} {selectedYear} • {selectedWeek === 'all' ? 'All Weeks' : `Week ${selectedWeek}`}
               </div>
             </div>
-
-            {/* Refresh Button */}
             <button
-              onClick={fetchCollation}
-              disabled={loading}
-              className="p-2 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-slate-100 transition-colors cursor-pointer"
-              title="Refresh Data"
+              onClick={handleWhatsAppBroadcast}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/30 transition-all cursor-pointer"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
+              <MessageCircle className="w-4 h-4" />
+              <span>Broadcast Reminder</span>
             </button>
           </div>
         </div>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* Printable Header (Visible only when printing) */}
         <div className="hidden print:flex items-center gap-4 mb-6 border-b pb-4">
           <img
@@ -1294,7 +1387,7 @@ export const AdminDashboard: React.FC = () => {
             <span>All figures update automatically upon rep submission.</span>
           </div>
         </div>
-      </div>
+      </main>
 
       {/* Name Corrections & Zone Management Modal (Admin Only) */}
       {showManageModal && (

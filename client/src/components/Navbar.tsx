@@ -68,6 +68,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenProfile, onPrint, showPrin
               <h1 className="text-xs sm:text-sm md:text-base font-extrabold text-slate-900 tracking-tight leading-tight uppercase">
                 IDIMU CHILDREN'S MINISTRY - DATA & SPIRITUAL REPORT PLATFORM
               </h1>
+              {isAdmin && (
+                <span className="hidden lg:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-900 text-amber-300 border border-slate-700 shadow-xs">
+                  🛡️ Admin Portal
+                </span>
+              )}
               {!isOnline && (
                 <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
                   <WifiOff className="w-3 h-3" /> Offline Mode
