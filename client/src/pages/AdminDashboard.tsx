@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Download,
   Printer,
+  FileText,
   ChevronDown,
   ChevronRight,
   CheckCircle2,
@@ -36,6 +37,8 @@ import {
 import { useAuth } from '../context/AuthContext';
 import type { CollationResponse, Zone, ChurchRowCollation } from '../types';
 import { reportsApi, metadataApi, authApi } from '../api';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -485,6 +488,182 @@ export const AdminDashboard: React.FC = () => {
     document.body.removeChild(link);
   };
 
+  // Export collation to PDF (19-column complete landscape format)
+  const exportToPDF = () => {
+    if (!collation) return;
+
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const periodStr = `${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}`;
+    const scopeStr = selectedWeek === 'all' ? 'Full Month Collation' : `Week ${selectedWeek}`;
+    const modeStr = aggregationMode === 'average' ? 'Average Headcount Rollup' : 'Cumulative Sum';
+
+    // Header Title
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text("IDIMU CHILDREN'S MINISTRY - DATA & SPIRITUAL REPORT PLATFORM", 8, 11);
+
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.text(
+      `Period: ${periodStr}  |  Scope: ${scopeStr}  |  Mode: ${modeStr}  |  Coordinator: Sister Taiwo Lawal  |  Assemblies: ${collation.totalChurchesCount}`,
+      8,
+      16
+    );
+
+    const headers = [
+      'Church / Zone',
+      'Wks',
+      'Sun Schl',
+      'Worship',
+      'Bible Std',
+      'Prayer',
+      'Visitors',
+      'Total Attd',
+      'Children',
+      'Cadets',
+      'Cupbearers',
+      'Candle',
+      'Teachers',
+      'BC (Ch)',
+      'BC (Tr)',
+      'Salv',
+      'HG Bap',
+      'Heal',
+      'Progs'
+    ];
+
+    const body: any[] = [];
+
+    collation.zones.forEach((z) => {
+      body.push([
+        {
+          content: `ZONE: ${z.zoneName.toUpperCase()}`,
+          colSpan: 19,
+          styles: { fontStyle: 'bold', fillColor: [238, 242, 255], textColor: [49, 46, 129] }
+        }
+      ]);
+
+      z.churches.forEach((c) => {
+        const hasProgs =
+          (c.specialProgrammes && c.specialProgrammes.length > 0) ||
+          (c.forthcomingProgrammes && c.forthcomingProgrammes.length > 0);
+
+        body.push([
+          c.churchName,
+          c.metrics.weeksCount,
+          c.metrics.sundaySchool,
+          c.metrics.worshipAttendance,
+          c.metrics.bibleStudy,
+          c.metrics.prayerMeeting,
+          c.metrics.visitors,
+          c.metrics.totalAttendance,
+          c.metrics.childrenCount,
+          c.metrics.cadetsCount,
+          c.metrics.cupbearersCount,
+          c.metrics.candlelightersCount,
+          c.metrics.teachersCount,
+          c.metrics.bibleClubChildren,
+          c.metrics.bibleClubTeachers,
+          c.metrics.salvations,
+          c.metrics.holyGhostBaptisms,
+          c.metrics.healings,
+          hasProgs ? 'Yes' : '-'
+        ]);
+      });
+
+      // Subtotal row
+      body.push([
+        { content: `Subtotal: ${z.zoneName}`, styles: { fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 23, 42] } },
+        { content: '-', styles: { fontStyle: 'bold', fillColor: [241, 245, 249], halign: 'center' } },
+        { content: z.subtotal.sundaySchool, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+        { content: z.subtotal.worshipAttendance, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+        { content: z.subtotal.bibleStudy, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+        { content: z.subtotal.prayerMeeting, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+        { content: z.subtotal.visitors, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+        { content: z.subtotal.totalAttendance, styles: { fontStyle: 'bold', fillColor: [224, 231, 255], textColor: [49, 46, 129] } },
+        { content: z.subtotal.childrenCount, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+        { content: z.subtotal.cadetsCount, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+        { content: z.subtotal.cupbearersCount, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+        { content: z.subtotal.candlelightersCount, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+        { content: z.subtotal.teachersCount, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+        { content: z.subtotal.bibleClubChildren, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+        { content: z.subtotal.bibleClubTeachers, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+        { content: z.subtotal.salvations, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+        { content: z.subtotal.holyGhostBaptisms, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+        { content: z.subtotal.healings, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+        { content: '-', styles: { fontStyle: 'bold', fillColor: [241, 245, 249], halign: 'center' } }
+      ]);
+    });
+
+    // Grand Totals Row
+    body.push([
+      { content: 'DISTRICT GRAND TOTALS', styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: 255 } },
+      { content: `${collation.totalChurchesCount} Ch`, styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: 255, halign: 'center' } },
+      { content: collation.grandTotals.sundaySchool.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [110, 231, 183] } },
+      { content: collation.grandTotals.worshipAttendance.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [110, 231, 183] } },
+      { content: collation.grandTotals.bibleStudy.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [110, 231, 183] } },
+      { content: collation.grandTotals.prayerMeeting.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [110, 231, 183] } },
+      { content: collation.grandTotals.visitors.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [252, 211, 77] } },
+      { content: collation.grandTotals.totalAttendance.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [30, 41, 59], textColor: [199, 210, 254] } },
+      { content: collation.grandTotals.childrenCount.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [216, 180, 254] } },
+      { content: collation.grandTotals.cadetsCount.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: 255 } },
+      { content: collation.grandTotals.cupbearersCount.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: 255 } },
+      { content: collation.grandTotals.candlelightersCount.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: 255 } },
+      { content: collation.grandTotals.teachersCount.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [110, 231, 183] } },
+      { content: collation.grandTotals.bibleClubChildren.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [153, 246, 228] } },
+      { content: collation.grandTotals.bibleClubTeachers.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [153, 246, 228] } },
+      { content: collation.grandTotals.salvations.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [253, 164, 175] } },
+      { content: collation.grandTotals.holyGhostBaptisms.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [253, 164, 175] } },
+      { content: collation.grandTotals.healings.toLocaleString(), styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: [253, 164, 175] } },
+      { content: '-', styles: { fontStyle: 'bold', fillColor: [15, 23, 42], textColor: 255, halign: 'center' } }
+    ]);
+
+    autoTable(doc, {
+      head: [headers],
+      body: body,
+      startY: 19,
+      margin: { top: 19, left: 8, right: 8, bottom: 8 },
+      styles: {
+        fontSize: 6.5,
+        cellPadding: 1.2,
+        halign: 'right',
+        lineColor: [203, 213, 225],
+        lineWidth: 0.15
+      },
+      headStyles: {
+        fillColor: [15, 23, 42],
+        textColor: 255,
+        fontSize: 6,
+        fontStyle: 'bold',
+        halign: 'center',
+        valign: 'middle'
+      },
+      columnStyles: {
+        0: { halign: 'left', cellWidth: 32 }
+      },
+      theme: 'grid',
+      didDrawPage: () => {
+        doc.setFontSize(6.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text(
+          'Foursquare Idimu Missionary District - Children Ministry Report Platform  |  Official Collation Copy',
+          8,
+          205
+        );
+      }
+    });
+
+    const filename = `foursquare_idimu_collation_${MONTH_NAMES[selectedMonth - 1]}_${selectedYear}_${selectedWeek === 'all' ? 'FullMonth' : `Week${selectedWeek}`}.pdf`;
+    doc.save(filename);
+  };
+
   // Filtered churches in Collation Table
   const filteredZones = useMemo(() => {
     if (!collation) return [];
@@ -788,6 +967,17 @@ export const AdminDashboard: React.FC = () => {
         </div>
         <button
           type="button"
+          onClick={exportToPDF}
+          disabled={!collation || loading}
+          className="w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-xs transition-all cursor-pointer disabled:opacity-50"
+          title="Download complete 19-column report as PDF document"
+        >
+          <FileText className="w-4 h-4" />
+          <span>Download PDF</span>
+        </button>
+
+        <button
+          type="button"
           onClick={exportToCSV}
           disabled={!collation || loading}
           className="w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all cursor-pointer disabled:opacity-50"
@@ -802,7 +992,7 @@ export const AdminDashboard: React.FC = () => {
           className="w-full flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all cursor-pointer"
         >
           <Printer className="w-4 h-4 text-slate-300" />
-          <span>Print / PDF</span>
+          <span>Print / Save PDF</span>
         </button>
       </div>
     </div>
@@ -1215,15 +1405,49 @@ export const AdminDashboard: React.FC = () => {
               </p>
             </div>
 
-            <div className="relative w-full sm:w-64">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search church or zone..."
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
-              />
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={exportToPDF}
+                disabled={!collation || loading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                title="Download complete 19-column report as PDF"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Download PDF</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={exportToCSV}
+                disabled={!collation || loading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors cursor-pointer disabled:opacity-50"
+                title="Export as CSV spreadsheet"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">CSV</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors cursor-pointer"
+                title="Print or Save as PDF"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Print</span>
+              </button>
+
+              <div className="relative w-full sm:w-56">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search church or zone..."
+                  className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+                />
+              </div>
             </div>
           </div>
 

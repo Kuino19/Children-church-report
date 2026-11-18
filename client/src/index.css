@@ -9,10 +9,19 @@
 
 /* Custom Print Styling for District Collation Report */
 @media print {
-  body {
+  @page {
+    size: landscape;
+    margin: 6mm 6mm 6mm 6mm;
+  }
+
+  html, body {
     background: white !important;
-    color: black !important;
-    font-size: 11pt !important;
+    color: #0f172a !important;
+    font-size: 8pt !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
   }
 
   .no-print {
@@ -27,19 +36,86 @@
     page-break-before: always;
   }
 
+  /* Unclip all containers so all 19 columns (including Cadets, Cupbearers, etc.) are never cut off */
+  main,
+  div,
+  .overflow-x-auto,
+  .overflow-hidden {
+    overflow: visible !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Table styling for complete 19-column collation display */
   table {
     border-collapse: collapse !important;
     width: 100% !important;
+    table-layout: auto !important;
+    font-size: 6.5pt !important;
+    margin: 0 !important;
   }
 
   th, td {
-    border: 1px solid #cbd5e1 !important;
-    padding: 6px 8px !important;
+    border: 0.5pt solid #94a3b8 !important;
+    padding: 2.5px 2px !important;
+    line-height: 1.15 !important;
+    white-space: normal !important;
+    word-break: normal !important;
   }
 
   th {
+    background-color: #0f172a !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    font-size: 6pt !important;
+    text-align: center !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Unstick first column and keep width compact so remaining columns fit */
+  th:first-child,
+  td:first-child {
+    position: static !important;
+    min-width: 0 !important;
+    width: 115px !important;
+    max-width: 125px !important;
+    text-align: left !important;
+    font-size: 6.5pt !important;
+  }
+
+  /* Zone title rows */
+  tr.bg-indigo-50\/40,
+  tr[class*="bg-indigo-50"] {
+    background-color: #e0e7ff !important;
+    color: #1e1b4b !important;
+    font-weight: 800 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Subtotal rows */
+  tr.bg-slate-100\/90,
+  tr[class*="bg-slate-100"] {
     background-color: #f1f5f9 !important;
-    color: #0f172a !important;
     font-weight: 700 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Grand totals row */
+  tr.bg-slate-900,
+  tr[class*="bg-slate-900"] {
+    background-color: #0f172a !important;
+    color: #ffffff !important;
+    font-weight: 900 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  tr.bg-slate-900 td,
+  tr[class*="bg-slate-900"] td {
+    color: #ffffff !important;
   }
 }
